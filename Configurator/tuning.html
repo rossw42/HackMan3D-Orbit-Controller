@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackman3D Tuning</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0f1117; color: #e0e0e0;
+  min-height: 100vh; padding: 16px; max-width: 1100px;
+}
+h1 { font-size: 17px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+.subtitle { font-size: 12px; color: #555; margin-bottom: 14px; }
+.open-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 14px;
+}
+.open-bar .file-name { font-size: 13px; color: #555; flex: 1; font-family: "SF Mono","Fira Code",monospace; }
+.open-bar .file-name.loaded { color: #4caf82; }
+.btn {
+  padding: 9px 18px; border-radius: 8px; font-size: 13px;
+  font-weight: 500; border: none; cursor: pointer; transition: opacity .15s;
+}
+.btn:disabled { opacity: .35; cursor: default; }
+.btn:not(:disabled):hover { opacity: .82; }
+.btn-primary   { background: #4f7cff; color: #fff; }
+.btn-open      { background: #23263a; color: #ccc; border: 1px solid #333; }
+.btn-secondary { background: #1a1d27; color: #aaa; border: 1px solid #2a2d3a; }
+.btn-danger    { background: #3a1a1a; color: #e07070; border: 1px solid #5a2a2a; }
+.editor { display: none; }
+.editor.visible { display: block; }
+</style>
+<style>
+/* ---- Section cards ---- */
+.section {
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid #2a2d3a;
+}
+.section-header:hover { background: #1e2135; }
+.section-title { font-size: 13px; font-weight: 600; color: #c0c8ff; }
+.section-caret { font-size: 11px; color: #555; transition: transform .15s; }
+.section-caret.open { transform: rotate(90deg); }
+.section-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.section-body.collapsed { display: none; }
+/* ---- Row ---- */
+.row { display: flex; flex-direction: column; gap: 4px; }
+.row-label {
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.row-name { font-size: 12px; font-weight: 600; color: #aac0ff; font-family: "SF Mono","Fira Code",monospace; }
+.row-val  { font-size: 13px; font-weight: 700; color: #fff; min-width: 42px; text-align: right; }
+.row-hint { font-size: 11px; color: #555; line-height: 1.4; }
+/* ---- Slider ---- */
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: #2a2d3a; border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: #4f7cff; cursor: pointer;
+}
+/* ---- Toggle ---- */
+.toggle-wrap { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.toggle {
+  position: relative; width: 40px; height: 22px; flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #2a2d3a; border-radius: 11px; transition: .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+}
+.toggle input:checked + .toggle-slider { background: #4f7cff; }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+.toggle-label { font-size: 13px; color: #aaa; }
+/* ---- Select ---- */
+select {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 6px; color: #e0e0e0; font-size: 13px; padding: 6px 10px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  cursor: pointer; max-width: 200px;
+}
+select:focus { outline: none; border-color: #4f7cff; }
+/* ---- Speed mode cards ---- */
+.speed-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.speed-card {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.speed-card-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+.speed-cards .row-name { font-size: 11px; }
+/* ---- Two-column grid ---- */
+.col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .col-grid { grid-template-columns: 1fr; }
+}
+/* ---- Bottom bar ---- */
+hr.divider { border: none; border-top: 1px solid #1e2030; margin: 14px 0; }
+.save-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.status { font-size: 13px; color: #555; flex: 1; }
+.status.ok    { color: #4caf82; }
+.status.error { color: #e05555; }
+</style>
+</head>
+<body>
+
+<h1>Hackman3D Tuning</h1>
+<p class="subtitle">Adjust controller parameters — edits Hackman3D_Orbit_Controller.ino directly</p>
+
+<div class="open-bar">
+  <button class="btn btn-open" onclick="openFile()">Open .ino file</button>
+  <span class="file-name" id="fileName">No file loaded</span>
+</div>
+
+<div class="editor" id="editor">
+<div class="col-grid">
+<div class="col-left">
+  <!-- Section: Dead zones -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Dead zones</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">DEADZONE_INPUT</span>
+          <span class="row-val" id="val_DEADZONE_INPUT">—</span>
+        </div>
+        <input type="range" min="10" max="120" step="1" id="DEADZONE_INPUT" oninput="onInt(this)">
+        <span class="row-hint">Removes electrical noise after reading joysticks. Increase if controller moves by itself; decrease if it needs too much force to react. Range: 30–70, default 40.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">DEADZONE_OUTPUT</span>
+          <span class="row-val" id="val_DEADZONE_OUTPUT">—</span>
+        </div>
+        <input type="range" min="10" max="120" step="1" id="DEADZONE_OUTPUT" oninput="onInt(this)">
+        <span class="row-hint">Removes tiny movement values before sending to the computer. Increase if camera drifts after releasing knob; decrease if fine movements feel imprecise. Range: 25–80, default 45.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Smoothing & calibration -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Smoothing &amp; calibration</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SMOOTH_DIVISOR</span>
+          <span class="row-val" id="val_SMOOTH_DIVISOR">—</span>
+        </div>
+        <input type="range" min="1" max="12" step="1" id="SMOOTH_DIVISOR" oninput="onInt(this)">
+        <span class="row-hint">Higher = smoother but slower. Lower = faster but less filtered. Range: 3–8, default 5.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">CENTER_SAMPLES</span>
+          <span class="row-val" id="val_CENTER_SAMPLES">—</span>
+        </div>
+        <input type="range" min="20" max="300" step="10" id="CENTER_SAMPLES" oninput="onInt(this)">
+        <span class="row-hint">Readings used during startup calibration. More = more stable center but longer startup. Range: 50–200, default 100.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Speed & response -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Speed &amp; response curve</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">MAX_SPEED_SCALE</span>
+          <span class="row-val" id="val_MAX_SPEED_SCALE">—</span>
+        </div>
+        <input type="range" min="0.10" max="1.00" step="0.01" id="MAX_SPEED_SCALE" oninput="onFloat(this,2)">
+        <span class="row-hint">Global speed cap. Decrease if all axes feel too fast; increase if too slow. Range: 0.50–1.00, default 0.70.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">RESPONSE_CURVE</span>
+          <span class="row-val" id="val_RESPONSE_CURVE">—</span>
+        </div>
+        <input type="range" min="0.8" max="3.0" step="0.05" id="RESPONSE_CURVE" oninput="onFloat(this,2)">
+        <span class="row-hint">How progressively the controller reacts near center. Higher = softer start; lower = more direct. Range: 1.0–2.2, default 1.6.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">DEFAULT_SPEED_MODE</span>
+          <span class="row-val" id="val_DEFAULT_SPEED_MODE">—</span>
+        </div>
+        <select id="DEFAULT_SPEED_MODE" onchange="onSelect(this,'int')">
+          <option value="0">0 — Slow</option>
+          <option value="1">1 — Normal</option>
+          <option value="2">2 — Fast</option>
+        </select>
+        <span class="row-hint">Which speed mode the controller starts in. Default: 1 (normal).</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Section: Translation gains -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Translation sensitivity</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_TX &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Left / Right</span></span>
+          <span class="row-val" id="val_GAIN_TX">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TX" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_TY &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Forward / Backward</span></span>
+          <span class="row-val" id="val_GAIN_TY">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TY" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_TZ &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Up / Down</span></span>
+          <span class="row-val" id="val_GAIN_TZ">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TZ" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.0–3.0, default 2.3.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Rotation gains -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Rotation sensitivity</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_RX &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Rotate X</span></span>
+          <span class="row-val" id="val_GAIN_RX">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RX" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_RY &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Rotate Y</span></span>
+          <span class="row-val" id="val_GAIN_RY">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RY" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">GAIN_RZ &nbsp;<span style="color:#555;font-weight:400;font-size:11px">Twist Z</span></span>
+          <span class="row-val" id="val_GAIN_RZ">—</span>
+        </div>
+        <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RZ" oninput="onFloat(this,2)">
+        <span class="row-hint">Range: 1.2–3.0, default 2.0.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Axis behavior -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Axis behavior</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">ROTATION_PRIORITY</span>
+          <span class="row-val" id="val_ROTATION_PRIORITY">—</span>
+        </div>
+        <input type="range" min="0.2" max="1.2" step="0.01" id="ROTATION_PRIORITY" oninput="onFloat(this,2)">
+        <span class="row-hint">Lower = rotation gets more priority over translation. Increase if translation cancels too easily. Range: 0.45–1.00, default 0.65.</span>
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">ENABLE_DOMINANT_AXIS_FILTER</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="ENABLE_DOMINANT_AXIS_FILTER" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_ENABLE_DOMINANT_AXIS_FILTER">Off</span>
+        </div>
+        <span class="row-hint">When on, only the strongest movement axis is sent. Useful if diagonal movements are too frequent. Default: off.</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /col-left -->
+<div class="col-right">
+
+  <!-- Section: Speed modes -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Speed mode profiles</span>
+      <span class="section-caret open">▶</span>
+    </div>
+    <div class="section-body">
+      <div class="speed-cards" id="speedModeCards">
+        <!-- filled by JS -->
+      </div>
+      <span class="row-hint" style="font-size:11px;color:#555;">Each mode has its own speed scale and response curve. Mode 0 = slow, 1 = normal, 2 = fast.</span>
+    </div>
+  </div>
+
+  <!-- Section: Speed mode button shortcut -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Speed mode button shortcut</span>
+      <span class="section-caret">▶</span>
+    </div>
+    <div class="section-body collapsed">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">MODE_SWITCH_BUTTON_COUNT</span>
+          <span class="row-val" id="val_MODE_SWITCH_BUTTON_COUNT">—</span>
+        </div>
+        <input type="range" min="0" max="3" step="1" id="MODE_SWITCH_BUTTON_COUNT" oninput="onInt(this)">
+        <span class="row-hint">How many buttons must be held to switch speed mode. Set to 0 to disable the shortcut.</span>
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">MODE_SWITCH_SUPPRESS_BUTTONS</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="MODE_SWITCH_SUPPRESS_BUTTONS" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_MODE_SWITCH_SUPPRESS_BUTTONS">Off</span>
+        </div>
+        <span class="row-hint">When on, the shortcut combo is not sent to the computer as normal button presses. Default: on.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">MODE_SWITCH_CHORD_WINDOW_MS</span>
+          <span class="row-val" id="val_MODE_SWITCH_CHORD_WINDOW_MS">—</span>
+        </div>
+        <input type="range" min="50" max="600" step="10" id="MODE_SWITCH_CHORD_WINDOW_MS" oninput="onInt(this)">
+        <span class="row-hint">Time allowed to complete the speed-mode combo. Increase if CAD app receives one button before the full combo; decrease if held single buttons feel delayed. Range: 150–400, default 250.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">MODE_SWITCH_DEBOUNCE_MS</span>
+          <span class="row-val" id="val_MODE_SWITCH_DEBOUNCE_MS">—</span>
+        </div>
+        <input type="range" min="100" max="1000" step="25" id="MODE_SWITCH_DEBOUNCE_MS" oninput="onInt(this)">
+        <span class="row-hint">Debounce after switching speed mode. Increase if one press changes mode more than once. Range: 300–700, default 500.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Slicer mouse mode -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Slicer mouse mode</span>
+      <span class="section-caret">▶</span>
+    </div>
+    <div class="section-body collapsed">
+      <div class="row">
+        <div class="row-label"><span class="row-name">ENABLE_SLICER_MOUSE_MODE</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="ENABLE_SLICER_MOUSE_MODE" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_ENABLE_SLICER_MOUSE_MODE">Off</span>
+        </div>
+        <span class="row-hint">Enable slicer mouse mode support. Default: on.</span>
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">DEFAULT_SLICER_MOUSE_MODE</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="DEFAULT_SLICER_MOUSE_MODE" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_DEFAULT_SLICER_MOUSE_MODE">Off</span>
+        </div>
+        <span class="row-hint">Start in slicer mouse mode instead of CAD mode. Default: off.</span>
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">ENABLE_SLICER_KEYBOARD_SHORTCUTS</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="ENABLE_SLICER_KEYBOARD_SHORTCUTS" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_ENABLE_SLICER_KEYBOARD_SHORTCUTS">Off</span>
+        </div>
+        <span class="row-hint">Enable keyboard shortcuts in slicer mode. Default: on.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SLICER_MOUSE_MOVE_DIVISOR</span>
+          <span class="row-val" id="val_SLICER_MOUSE_MOVE_DIVISOR">—</span>
+        </div>
+        <input type="range" min="20" max="400" step="5" id="SLICER_MOUSE_MOVE_DIVISOR" oninput="onInt(this)">
+        <span class="row-hint">Controls drag speed. Increase if view moves too fast; decrease if too slow. Default: 120.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SLICER_MOUSE_WHEEL_THRESHOLD</span>
+          <span class="row-val" id="val_SLICER_MOUSE_WHEEL_THRESHOLD">—</span>
+        </div>
+        <input type="range" min="10" max="300" step="5" id="SLICER_MOUSE_WHEEL_THRESHOLD" oninput="onInt(this)">
+        <span class="row-hint">Minimum movement before zoom activates. Increase if zoom starts too easily. Default: 90.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS</span>
+          <span class="row-val" id="val_SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS">—</span>
+        </div>
+        <input type="range" min="10" max="200" step="5" id="SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS" oninput="onInt(this)">
+        <span class="row-hint">Fastest zoom repeat rate. Lower = faster zoom. Default: 45.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS</span>
+          <span class="row-val" id="val_SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS">—</span>
+        </div>
+        <input type="range" min="30" max="400" step="5" id="SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS" oninput="onInt(this)">
+        <span class="row-hint">Slowest zoom repeat rate. Higher = slower zoom. Default: 125.</span>
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">SLICER_MOUSE_AUTO_DRAG</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="SLICER_MOUSE_AUTO_DRAG" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_SLICER_MOUSE_AUTO_DRAG">Off</span>
+        </div>
+        <span class="row-hint">Automatically hold mouse button while dragging in slicer mode. Default: on.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">SLICER_BUTTON_LONG_PRESS_MS</span>
+          <span class="row-val" id="val_SLICER_BUTTON_LONG_PRESS_MS">—</span>
+        </div>
+        <input type="range" min="100" max="1500" step="25" id="SLICER_BUTTON_LONG_PRESS_MS" oninput="onInt(this)">
+        <span class="row-hint">How long to hold a button for the long-press action in slicer mode. Default: 650 ms.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Debug -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <span class="section-title">Serial debug output</span>
+      <span class="section-caret">▶</span>
+    </div>
+    <div class="section-body collapsed">
+      <div class="row">
+        <div class="row-label"><span class="row-name">DEBUG_SERIAL</span></div>
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="DEBUG_SERIAL" onchange="onBool(this)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="lbl_DEBUG_SERIAL">Off</span>
+        </div>
+        <span class="row-hint">Enable serial output for debugging. Keep off during normal use. Default: off.</span>
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">DEBUG_SERIAL_INTERVAL_MS</span>
+          <span class="row-val" id="val_DEBUG_SERIAL_INTERVAL_MS">—</span>
+        </div>
+        <input type="range" min="20" max="1000" step="10" id="DEBUG_SERIAL_INTERVAL_MS" oninput="onInt(this)">
+        <span class="row-hint">How often to print debug data. Higher = less output. Default: 100 ms.</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /col-right -->
+</div><!-- /col-grid -->
+
+  <hr class="divider">
+
+  <div class="save-bar">
+    <button class="btn btn-primary" onclick="onSave()">Save to .ino</button>
+    <button class="btn btn-secondary" onclick="onReset()">Discard changes</button>
+    <button class="btn btn-danger" onclick="onDefaults()">Reset all to defaults</button>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+
+
+<script>
+// ---------------------------------------------------------------------------
+// Default values (safe defaults from guide section 16)
+// ---------------------------------------------------------------------------
+const DEFAULTS = {
+  DEADZONE_INPUT: 40,
+  DEADZONE_OUTPUT: 45,
+  CENTER_SAMPLES: 100,
+  SMOOTH_DIVISOR: 5,
+  GAIN_TX: 1.3, GAIN_TY: 1.3, GAIN_TZ: 2.3,
+  GAIN_RX: 1.8, GAIN_RY: 1.8, GAIN_RZ: 2.0,
+  MAX_SPEED_SCALE: 0.70,
+  RESPONSE_CURVE: 1.6,
+  DEFAULT_SPEED_MODE: 1,
+  SPEED_MODE_SCALE_0: 0.50, SPEED_MODE_SCALE_1: 0.70, SPEED_MODE_SCALE_2: 1.00,
+  SPEED_MODE_RESPONSE_CURVE_0: 1.9, SPEED_MODE_RESPONSE_CURVE_1: 1.6, SPEED_MODE_RESPONSE_CURVE_2: 1.3,
+  DEBUG_SERIAL: false,
+  DEBUG_SERIAL_INTERVAL_MS: 100,
+  ROTATION_PRIORITY: 0.65,
+  ENABLE_DOMINANT_AXIS_FILTER: false,
+  ENABLE_SLICER_MOUSE_MODE: true,
+  DEFAULT_SLICER_MOUSE_MODE: false,
+  ENABLE_SLICER_KEYBOARD_SHORTCUTS: true,
+  SLICER_MOUSE_MOVE_DIVISOR: 120,
+  SLICER_MOUSE_WHEEL_THRESHOLD: 90,
+  SLICER_MOUSE_WHEEL_FULL_SCALE: 700,
+  SLICER_MOUSE_MAX_MOVE: 12,
+  SLICER_MOUSE_MAX_WHEEL: 1,
+  SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS: 45,
+  SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS: 125,
+  SLICER_MOUSE_AUTO_DRAG: true,
+  SLICER_BUTTON_LONG_PRESS_MS: 650,
+  MODE_SWITCH_BUTTON_COUNT: 3,
+  MODE_SWITCH_SUPPRESS_BUTTONS: true,
+  MODE_SWITCH_CHORD_WINDOW_MS: 250,
+  MODE_SWITCH_DEBOUNCE_MS: 500,
+};
+
+// State
+let fileHandle = null, originalText = '', draft = {};
+
+// ---------------------------------------------------------------------------
+// Parse .ino — read a numeric const (int or float)
+// ---------------------------------------------------------------------------
+function getNum(text, name) {
+  const m = text.match(new RegExp(`const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*([^;]+);`));
+  if (!m) return null;
+  const raw = m[1].trim();
+  if (raw.includes('MAX_SPEED_SCALE')) return null; // skip alias references
+  if (raw.includes('RESPONSE_CURVE')) return null;
+  return parseFloat(raw);
+}
+
+function getBool(text, name) {
+  const m = text.match(new RegExp(`const bool\\s+${name}\\s*=\\s*(true|false)\\s*;`));
+  return m ? m[1] === 'true' : null;
+}
+
+function getArrayVal(text, name, idx) {
+  const m = text.match(new RegExp(`const (?:float|int)\\s+${name}\\[\\d\\]\\s*=\\s*\\{([^}]+)\\}`));
+  if (!m) return null;
+  const parts = m[1].split(',').map(s => s.trim());
+  if (idx >= parts.length) return null;
+  const v = parts[idx];
+  if (v.includes('MAX_SPEED_SCALE')) return getNum(text, 'MAX_SPEED_SCALE');
+  if (v.includes('RESPONSE_CURVE'))  return getNum(text, 'RESPONSE_CURVE');
+  return parseFloat(v);
+}
+
+function parseState(text) {
+  const d = {};
+  const numKeys = [
+    'DEADZONE_INPUT','DEADZONE_OUTPUT','CENTER_SAMPLES','SMOOTH_DIVISOR',
+    'GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ',
+    'MAX_SPEED_SCALE','RESPONSE_CURVE','DEFAULT_SPEED_MODE',
+    'DEBUG_SERIAL_INTERVAL_MS','ROTATION_PRIORITY',
+    'SLICER_MOUSE_MOVE_DIVISOR','SLICER_MOUSE_WHEEL_THRESHOLD',
+    'SLICER_MOUSE_WHEEL_FULL_SCALE','SLICER_MOUSE_MAX_MOVE','SLICER_MOUSE_MAX_WHEEL',
+    'SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS','SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS',
+    'SLICER_BUTTON_LONG_PRESS_MS',
+    'MODE_SWITCH_BUTTON_COUNT','MODE_SWITCH_CHORD_WINDOW_MS','MODE_SWITCH_DEBOUNCE_MS',
+  ];
+  const boolKeys = [
+    'DEBUG_SERIAL','ENABLE_DOMINANT_AXIS_FILTER',
+    'ENABLE_SLICER_MOUSE_MODE','DEFAULT_SLICER_MOUSE_MODE',
+    'ENABLE_SLICER_KEYBOARD_SHORTCUTS','SLICER_MOUSE_AUTO_DRAG','MODE_SWITCH_SUPPRESS_BUTTONS',
+  ];
+  for (const k of numKeys) {
+    const v = getNum(text, k);
+    d[k] = v !== null ? v : DEFAULTS[k];
+  }
+  for (const k of boolKeys) {
+    const v = getBool(text, k);
+    d[k] = v !== null ? v : DEFAULTS[k];
+  }
+  // Speed mode arrays
+  for (let i = 0; i < 3; i++) {
+    const sv = getArrayVal(text, 'SPEED_MODE_SCALE', i);
+    const rv = getArrayVal(text, 'SPEED_MODE_RESPONSE_CURVE', i);
+    d[`SPEED_MODE_SCALE_${i}`]          = sv !== null ? sv : DEFAULTS[`SPEED_MODE_SCALE_${i}`];
+    d[`SPEED_MODE_RESPONSE_CURVE_${i}`] = rv !== null ? rv : DEFAULTS[`SPEED_MODE_RESPONSE_CURVE_${i}`];
+  }
+  return d;
+}
+
+// ---------------------------------------------------------------------------
+// Patch .ino
+// ---------------------------------------------------------------------------
+function patchNum(text, name, value, isFloat) {
+  const fmt = isFloat ? value.toFixed(2) : String(Math.round(value));
+  return text.replace(
+    new RegExp(`(const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*)[^;]+(;)`),
+    `$1${fmt}$2`
+  );
+}
+
+function patchBool(text, name, value) {
+  return text.replace(
+    new RegExp(`(const bool\\s+${name}\\s*=\\s*)(?:true|false)(\\s*;)`),
+    `$1${value ? 'true' : 'false'}$2`
+  );
+}
+
+function patchSpeedModeArray(text, name, vals) {
+  const fmt = vals.map(v => `  ${v.toFixed(2)}`).join(',\n');
+  return text.replace(
+    new RegExp(`(const (?:float|int)\\s+${name}\\[3\\]\\s*=\\s*\\{)[^}]+(\\})`,'s'),
+    `$1\n${fmt}\n$2`
+  );
+}
+
+function applyPatch(text, d) {
+  const ints = [
+    'DEADZONE_INPUT','DEADZONE_OUTPUT','CENTER_SAMPLES','SMOOTH_DIVISOR',
+    'DEFAULT_SPEED_MODE','DEBUG_SERIAL_INTERVAL_MS',
+    'SLICER_MOUSE_MOVE_DIVISOR','SLICER_MOUSE_WHEEL_THRESHOLD',
+    'SLICER_MOUSE_WHEEL_FULL_SCALE','SLICER_MOUSE_MAX_MOVE','SLICER_MOUSE_MAX_WHEEL',
+    'SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS','SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS',
+    'SLICER_BUTTON_LONG_PRESS_MS',
+    'MODE_SWITCH_BUTTON_COUNT','MODE_SWITCH_CHORD_WINDOW_MS','MODE_SWITCH_DEBOUNCE_MS',
+  ];
+  const floats = [
+    'GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ',
+    'MAX_SPEED_SCALE','RESPONSE_CURVE','ROTATION_PRIORITY',
+  ];
+  const bools = [
+    'DEBUG_SERIAL','ENABLE_DOMINANT_AXIS_FILTER',
+    'ENABLE_SLICER_MOUSE_MODE','DEFAULT_SLICER_MOUSE_MODE',
+    'ENABLE_SLICER_KEYBOARD_SHORTCUTS','SLICER_MOUSE_AUTO_DRAG','MODE_SWITCH_SUPPRESS_BUTTONS',
+  ];
+  let out = text;
+  for (const k of ints)   out = patchNum(out, k, d[k], false);
+  for (const k of floats) out = patchNum(out, k, d[k], true);
+  for (const k of bools)  out = patchBool(out, k, d[k]);
+  out = patchSpeedModeArray(out, 'SPEED_MODE_SCALE',
+    [d.SPEED_MODE_SCALE_0, d.SPEED_MODE_SCALE_1, d.SPEED_MODE_SCALE_2]);
+  out = patchSpeedModeArray(out, 'SPEED_MODE_RESPONSE_CURVE',
+    [d.SPEED_MODE_RESPONSE_CURVE_0, d.SPEED_MODE_RESPONSE_CURVE_1, d.SPEED_MODE_RESPONSE_CURVE_2]);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// File I/O
+// ---------------------------------------------------------------------------
+async function openFile() {
+  if (!window.showOpenFilePicker) {
+    setStatus('File System Access API not supported — use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Arduino sketch', accept: { 'text/plain': ['.ino'] } }],
+      multiple: false,
+    });
+    const file = await fileHandle.getFile();
+    originalText = await file.text();
+    draft = parseState(originalText);
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileName').classList.add('loaded');
+    document.getElementById('editor').classList.add('visible');
+    setStatus('');
+    renderAll();
+  } catch(e) {
+    if (e.name !== 'AbortError') setStatus('Could not open file: ' + e.message, 'error');
+  }
+}
+
+async function writeFile(text) {
+  const w = await fileHandle.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+function makeBackup(text, name) {
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+  const bname = `${name}.backup_${ts}`;
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([text], {type:'text/plain'})),
+    download: bname,
+  });
+  a.click();
+  return bname;
+}
+
+// ---------------------------------------------------------------------------
+// Render all controls from draft
+// ---------------------------------------------------------------------------
+function isFloat(key) {
+  return ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ',
+    'MAX_SPEED_SCALE','RESPONSE_CURVE','ROTATION_PRIORITY',
+    'SPEED_MODE_SCALE_0','SPEED_MODE_SCALE_1','SPEED_MODE_SCALE_2',
+    'SPEED_MODE_RESPONSE_CURVE_0','SPEED_MODE_RESPONSE_CURVE_1','SPEED_MODE_RESPONSE_CURVE_2',
+  ].includes(key);
+}
+
+function renderSlider(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = draft[key];
+  const v = document.getElementById('val_' + key);
+  if (v) v.textContent = isFloat(key) ? Number(draft[key]).toFixed(2) : Math.round(draft[key]);
+}
+
+function renderBool(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.checked = draft[key];
+  const lbl = document.getElementById('lbl_' + key);
+  if (lbl) lbl.textContent = draft[key] ? 'On' : 'Off';
+}
+
+function renderSelect(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = String(draft[key]);
+}
+
+function renderSpeedModeCards() {
+  const names = ['Slow', 'Normal', 'Fast'];
+  document.getElementById('speedModeCards').innerHTML = [0,1,2].map(i => `
+    <div class="speed-card">
+      <div class="speed-card-title">${names[i]}</div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">Scale</span>
+          <span class="row-val" id="val_SPEED_MODE_SCALE_${i}">—</span>
+        </div>
+        <input type="range" min="0.1" max="1.0" step="0.01"
+          id="SPEED_MODE_SCALE_${i}" oninput="onFloat(this,2)">
+      </div>
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">Curve</span>
+          <span class="row-val" id="val_SPEED_MODE_RESPONSE_CURVE_${i}">—</span>
+        </div>
+        <input type="range" min="0.8" max="3.0" step="0.05"
+          id="SPEED_MODE_RESPONSE_CURVE_${i}" oninput="onFloat(this,2)">
+      </div>
+    </div>`).join('');
+}
+
+function renderAll() {
+  renderSpeedModeCards();
+  const sliderKeys = [
+    'DEADZONE_INPUT','DEADZONE_OUTPUT','SMOOTH_DIVISOR','CENTER_SAMPLES',
+    'MAX_SPEED_SCALE','RESPONSE_CURVE','ROTATION_PRIORITY',
+    'GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ',
+    'SPEED_MODE_SCALE_0','SPEED_MODE_SCALE_1','SPEED_MODE_SCALE_2',
+    'SPEED_MODE_RESPONSE_CURVE_0','SPEED_MODE_RESPONSE_CURVE_1','SPEED_MODE_RESPONSE_CURVE_2',
+    'MODE_SWITCH_BUTTON_COUNT','MODE_SWITCH_CHORD_WINDOW_MS','MODE_SWITCH_DEBOUNCE_MS',
+    'SLICER_MOUSE_MOVE_DIVISOR','SLICER_MOUSE_WHEEL_THRESHOLD',
+    'SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS','SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS',
+    'SLICER_BUTTON_LONG_PRESS_MS','DEBUG_SERIAL_INTERVAL_MS',
+  ];
+  for (const k of sliderKeys) renderSlider(k);
+  const boolKeys = [
+    'DEBUG_SERIAL','ENABLE_DOMINANT_AXIS_FILTER',
+    'ENABLE_SLICER_MOUSE_MODE','DEFAULT_SLICER_MOUSE_MODE',
+    'ENABLE_SLICER_KEYBOARD_SHORTCUTS','SLICER_MOUSE_AUTO_DRAG','MODE_SWITCH_SUPPRESS_BUTTONS',
+  ];
+  for (const k of boolKeys) renderBool(k);
+  renderSelect('DEFAULT_SPEED_MODE');
+}
+
+// ---------------------------------------------------------------------------
+// Input handlers
+// ---------------------------------------------------------------------------
+function onInt(el) {
+  draft[el.id] = parseInt(el.value);
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = draft[el.id];
+}
+
+function onFloat(el, decimals) {
+  draft[el.id] = parseFloat(parseFloat(el.value).toFixed(decimals));
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = draft[el.id].toFixed(decimals);
+}
+
+function onBool(el) {
+  draft[el.id] = el.checked;
+  const lbl = document.getElementById('lbl_' + el.id);
+  if (lbl) lbl.textContent = el.checked ? 'On' : 'Off';
+}
+
+function onSelect(el, type) {
+  draft[el.id] = type === 'int' ? parseInt(el.value) : el.value;
+}
+
+// ---------------------------------------------------------------------------
+// Section collapse / expand
+// ---------------------------------------------------------------------------
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const caret = header.querySelector('.section-caret');
+  const collapsed = body.classList.toggle('collapsed');
+  caret.classList.toggle('open', !collapsed);
+}
+
+// ---------------------------------------------------------------------------
+// Save / reset / defaults
+// ---------------------------------------------------------------------------
+async function onSave() {
+  if (!fileHandle) return;
+  setStatus('Saving…');
+  try {
+    const backupName = makeBackup(originalText, fileHandle.name);
+    const patched = applyPatch(originalText, draft);
+    await writeFile(patched);
+    originalText = patched;
+    setStatus(`Saved. Backup downloaded: ${backupName}`, 'ok');
+  } catch(e) {
+    setStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
+function onReset() {
+  draft = parseState(originalText);
+  renderAll();
+  setStatus('');
+}
+
+function onDefaults() {
+  if (!confirm('Reset all settings to factory defaults?')) return;
+  draft = Object.assign({}, DEFAULTS);
+  renderAll();
+  setStatus('All values reset to defaults — save to apply.');
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>
