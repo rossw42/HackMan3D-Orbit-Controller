@@ -332,7 +332,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 
 | Phase | Status |
 |---|---|
-| 0 — Golden reference harness | ☐ Not started |
+| 0 — Golden reference harness | ✅ **COMPLETE** — `reference_pipeline.c` + `golden.csv` committed |
 | 1 — QMK core fork | ☐ Not started |
 | 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
 | 3 — Analog + calibration | ☐ Not started |
