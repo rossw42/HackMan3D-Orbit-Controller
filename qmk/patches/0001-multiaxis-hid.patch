@@ -1,0 +1,793 @@
+From fe9d7637a60fd4d3b63b1721e8d401b983967567 Mon Sep 17 00:00:00 2001
+From: rossw42 <rossw42@woodhome.com>
+Date: Thu, 30 Jul 2026 19:40:42 -0400
+Subject: [PATCH] hackman3d: add multi-axis HID descriptor patch
+ (JOYSTICK_MULTIAXIS_ENABLE)
+
+---
+ keyboards/hackman3d/orbit_controller/config.h |  57 ++++++++++
+ .../hackman3d/orbit_controller/keyboard.json  |  36 ++++++
+ .../orbit_controller/keymaps/default/keymap.c |  42 +++++++
+ .../orbit_controller/keymaps/viam/config.h    |  13 +++
+ .../orbit_controller/keymaps/viam/keymap.c    |  30 +++++
+ .../orbit_controller/keymaps/viam/rules.mk    |   5 +
+ .../orbit_controller/orbit_autoreset.c        |  45 ++++++++
+ .../orbit_controller/orbit_controller.c       |  80 ++++++++++++++
+ .../orbit_controller/orbit_controller.h       | 103 ++++++++++++++++++
+ .../hackman3d/orbit_controller/readme.md      |  83 ++++++++++++++
+ keyboards/hackman3d/orbit_controller/rules.mk |  35 ++++++
+ tmk_core/protocol.mk                          |  12 +-
+ tmk_core/protocol/lufa/lufa.c                 |  17 +++
+ tmk_core/protocol/report.h                    |  25 +++++
+ tmk_core/protocol/usb_descriptor.c            |  43 ++++++++
+ 15 files changed, 621 insertions(+), 5 deletions(-)
+ create mode 100644 keyboards/hackman3d/orbit_controller/config.h
+ create mode 100644 keyboards/hackman3d/orbit_controller/keyboard.json
+ create mode 100644 keyboards/hackman3d/orbit_controller/keymaps/default/keymap.c
+ create mode 100644 keyboards/hackman3d/orbit_controller/keymaps/viam/config.h
+ create mode 100644 keyboards/hackman3d/orbit_controller/keymaps/viam/keymap.c
+ create mode 100644 keyboards/hackman3d/orbit_controller/keymaps/viam/rules.mk
+ create mode 100644 keyboards/hackman3d/orbit_controller/orbit_autoreset.c
+ create mode 100644 keyboards/hackman3d/orbit_controller/orbit_controller.c
+ create mode 100644 keyboards/hackman3d/orbit_controller/orbit_controller.h
+ create mode 100644 keyboards/hackman3d/orbit_controller/readme.md
+ create mode 100644 keyboards/hackman3d/orbit_controller/rules.mk
+
+diff --git a/keyboards/hackman3d/orbit_controller/config.h b/keyboards/hackman3d/orbit_controller/config.h
+new file mode 100644
+index 0000000000..feee5f3eee
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/config.h
+@@ -0,0 +1,57 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++/* ------------------------------------------------------------------------
++ * Multi-axis (3Dconnexion SpaceMouse) HID
++ *
++ * Enables the forked joystick descriptor in tmk_core that emits a
++ * Generic Desktop / Multi-axis Controller (usage 0x08) with three
++ * separate reports:
++ *     Report 1 = translation X/Y/Z   (3 x int16)
++ *     Report 2 = rotation Rx/Ry/Rz   (3 x int16)
++ *     Report 3 = 32 buttons
++ * This layout is what the 3DxWare driver binds against.
++ * See qmk/03_HID_DESCRIPTOR_FORK.md in the HackMan3D-Orbit-Controller repo.
++ * ---------------------------------------------------------------------- */
++#ifndef JOYSTICK_MULTIAXIS_ENABLE
++#    define JOYSTICK_MULTIAXIS_ENABLE
++#endif
++
++#define JOYSTICK_AXIS_COUNT 6
++#define JOYSTICK_AXIS_RESOLUTION 16
++#define JOYSTICK_BUTTON_COUNT 32
++
++/* ------------------------------------------------------------------------
++ * Debounce
++ *
++ * The Arduino firmware debounced the whole button mask as a unit ("stable"
++ * for 10 ms"), and the chord state machine depends on those exact
++ * semantics. That filter is ported verbatim in orbit_chords.c, so QMK's
++ * own per-key debounce is disabled to avoid stacking two filters and
++ * doubling button latency.
++ * ---------------------------------------------------------------------- */
++#define DEBOUNCE 0
++
++/* ------------------------------------------------------------------------
++ * Live-tunable configuration block (EEPROM)
++ *
++ * orbit_config_t is ~61 bytes; 64 gives a little room to grow.
++ * ---------------------------------------------------------------------- */
++#define EECONFIG_KB_DATA_SIZE 64
++
++/* ------------------------------------------------------------------------
++ * Pointing device (slicer mouse mode)
++ * ---------------------------------------------------------------------- */
++#define POINTING_DEVICE_TASK_THROTTLE_MS 1
++
++/* ------------------------------------------------------------------------
++ * Endpoint economy - the 32U4 has only 6 usable endpoints and we need one
++ * for the multi-axis interface plus two for VIA's raw HID.
++ *
++ * MOUSE_SHARED_EP is NOT defined here: enabling POINTING_DEVICE already
++ * defines it (see tmk_core/protocol/usb_descriptor.h), and redefining it
++ * is a -Werror build failure.
++ * ---------------------------------------------------------------------- */
++#define KEYBOARD_SHARED_EP
+diff --git a/keyboards/hackman3d/orbit_controller/keyboard.json b/keyboards/hackman3d/orbit_controller/keyboard.json
+new file mode 100644
+index 0000000000..64f575e8ea
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/keyboard.json
+@@ -0,0 +1,36 @@
++{
++    "manufacturer": "3Dconnexion",
++    "keyboard_name": "SpaceMouse Pro Wireless (cabled)",
++    "maintainer": "HackMan3D",
++    "processor": "atmega32u4",
++    "bootloader": "caterina",
++    "url": "https://github.com/HackMan3D/HackMan3D-Orbit-Controller",
++    "usb": {
++        "vid": "0x256F",
++        "pid": "0xC631",
++        "device_version": "1.1.0"
++    },
++    "matrix_pins": {
++        "direct": [["D1", "D0", "E6"]]
++    },
++    "features": {
++        "bootmagic": false,
++        "extrakey": false,
++        "mousekey": false,
++        "nkro": false,
++        "joystick": true,
++        "pointing_device": true
++    },
++    "build": {
++        "lto": true
++    },
++    "layouts": {
++        "LAYOUT": {
++            "layout": [
++                {"matrix": [0, 0], "x": 0, "y": 0},
++                {"matrix": [0, 1], "x": 1, "y": 0},
++                {"matrix": [0, 2], "x": 2, "y": 0}
++            ]
++        }
++    }
++}
+diff --git a/keyboards/hackman3d/orbit_controller/keymaps/default/keymap.c b/keyboards/hackman3d/orbit_controller/keymaps/default/keymap.c
+new file mode 100644
+index 0000000000..df09267233
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/keymaps/default/keymap.c
+@@ -0,0 +1,42 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include QMK_KEYBOARD_H
++#include "orbit_controller.h"
++
++/* The three physical buttons appear on three layers:
++ *
++ *   _BASE        6DOF mode - buttons are SpaceMouse buttons 1-3, reported in
++ *                the multi-axis button report (Report ID 3). Handled directly
++ *                by orbit_6dof.c, so the keycodes here are placeholders.
++ *
++ *   _SLICER      slicer mouse mode, SHORT press actions.
++ *   _SLICER_LONG slicer mouse mode, LONG press (>= 650 ms) actions.
++ *
++ * The slicer layers replace the 12 SLICER_SHORTCUT_* constants from the
++ * Arduino firmware. orbit_slicer.c looks the keycode up from the layer at
++ * press/release time via keymap_key_to_keycode(), which reads the *dynamic*
++ * keymap when VIA is enabled - so these are live-remappable with no reflash.
++ *
++ * Defaults below match Hackman3D_Orbit_Controller.ino v1.1.0 exactly.
++ */
++
++const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
++    /* NOTE while the port is still a skeleton: button 3 is QK_BOOT so there is
++     * a software route back into the bootloader. Once orbit_6dof.c is wired up
++     * this becomes KC_NO, because the 6DOF buttons bypass the keymap entirely.
++     * Recovery without it is a double-tap of RST-to-GND, which is fiddly. */
++    [_BASE] = LAYOUT(
++        KC_NO, KC_NO, QK_BOOT
++    ),
++
++    /* Short press: Tab / N / Ctrl+0 */
++    [_SLICER] = LAYOUT(
++        KC_TAB, KC_N, LCTL(KC_0)
++    ),
++
++    /* Long press: Shift+Alt+G / L / A */
++    [_SLICER_LONG] = LAYOUT(
++        LSA(KC_G), KC_L, KC_A
++    ),
++};
+diff --git a/keyboards/hackman3d/orbit_controller/keymaps/viam/config.h b/keyboards/hackman3d/orbit_controller/keymaps/viam/config.h
+new file mode 100644
+index 0000000000..8a8fff7a86
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/keymaps/viam/config.h
+@@ -0,0 +1,13 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++/* Three layers: base (6DOF), slicer short-press, slicer long-press. */
++#define DYNAMIC_KEYMAP_LAYER_COUNT 3
++
++/* Macros are meaningless on a 3-button device, and the default of 16 would
++ * claim ~800 bytes of the 32U4's 1KB EEPROM for the macro buffer, crowding
++ * out the tuning block. See qmk/05_SIZE_BUDGET.md section 3.
++ */
++#define DYNAMIC_KEYMAP_MACRO_COUNT 0
+diff --git a/keyboards/hackman3d/orbit_controller/keymaps/viam/keymap.c b/keyboards/hackman3d/orbit_controller/keymaps/viam/keymap.c
+new file mode 100644
+index 0000000000..507d43f831
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/keymaps/viam/keymap.c
+@@ -0,0 +1,30 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include QMK_KEYBOARD_H
++#include "orbit_controller.h"
++
++/* Same defaults as the `default` keymap - VIA overrides these from EEPROM
++ * once the user edits them. See keymaps/default/keymap.c for the layer
++ * rationale, and qmk/04_VIA_CUSTOM_MENUS.md for the live-tuning design.
++ */
++
++const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
++    /* NOTE while the port is still a skeleton: button 3 is QK_BOOT so there is
++     * a software route back into the bootloader. With VIA you can also remap
++     * this live. Once orbit_6dof.c is wired up this becomes KC_NO, because the
++     * 6DOF buttons bypass the keymap entirely. */
++    [_BASE] = LAYOUT(
++        KC_NO, KC_NO, QK_BOOT
++    ),
++
++    /* Short press: Tab / N / Ctrl+0 */
++    [_SLICER] = LAYOUT(
++        KC_TAB, KC_N, LCTL(KC_0)
++    ),
++
++    /* Long press: Shift+Alt+G / L / A */
++    [_SLICER_LONG] = LAYOUT(
++        LSA(KC_G), KC_L, KC_A
++    ),
++};
+diff --git a/keyboards/hackman3d/orbit_controller/keymaps/viam/rules.mk b/keyboards/hackman3d/orbit_controller/keymaps/viam/rules.mk
+new file mode 100644
+index 0000000000..fb3bd2dd3b
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/keymaps/viam/rules.mk
+@@ -0,0 +1,5 @@
++VIA_ENABLE = yes
++
++# The live-tuning handler (via_custom_value_command_kb) is only meaningful
++# with VIA, so it is compiled here rather than in the keyboard rules.mk.
++#SRC += orbit_via.c
+diff --git a/keyboards/hackman3d/orbit_controller/orbit_autoreset.c b/keyboards/hackman3d/orbit_controller/orbit_autoreset.c
+new file mode 100644
+index 0000000000..cc08854255
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/orbit_autoreset.c
+@@ -0,0 +1,45 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++//
++// Arduino-style "1200-baud touch" auto-reset into the bootloader.
++//
++// The Arduino IDE (and `arduino-cli`, PlatformIO, avrdude wrappers, and the
++// Web Serial uploaders) put a Pro Micro into its bootloader by opening the
++// device's CDC serial port at 1200 baud and immediately closing it. The
++// Arduino core watches for that magic baud rate and jumps to the bootloader.
++//
++// QMK does not implement this - I grepped tmk_core, quantum and platforms/avr
++// for "1200" and there is no handler - so once QMK is flashed the Arduino IDE
++// can no longer reset the board for you, and you are back to double-tapping
++// RST-to-GND inside Caterina's ~750 ms window.
++//
++// This file restores that behaviour. LUFA declares
++// EVENT_CDC_Device_LineEncodingChanged() as ATTR_WEAK aliased to an empty stub
++// (lib/lufa/LUFA/.../CDCClassDevice.h:376), and QMK never defines it, so we can
++// simply provide our own here. No core patch needed.
++//
++// Requires VIRTSER_ENABLE = yes, which is what creates the CDC interface.
++// Measured cost: 880 bytes of flash (11,920 -> 12,800 on the viam build).
++
++#include QMK_KEYBOARD_H
++
++#ifdef VIRTSER_ENABLE
++
++#    include <LUFA/Drivers/USB/USB.h>
++
++/* The de-facto standard magic baud rate, same value the Arduino cores use. */
++#    ifndef ORBIT_AUTORESET_BAUD
++#        define ORBIT_AUTORESET_BAUD 1200
++#    endif
++
++/* Called by LUFA whenever the host issues CDC SET_LINE_CODING. */
++void EVENT_CDC_Device_LineEncodingChanged(USB_ClassInfo_CDC_Device_t *const CDCInterfaceInfo) {
++    if (CDCInterfaceInfo->State.LineEncoding.BaudRateBPS == ORBIT_AUTORESET_BAUD) {
++        // Matches the Arduino core's behaviour: reset immediately. bootloader_jump()
++        // sets Caterina's boot key and triggers a watchdog reset, so the bootloader
++        // stays open long enough for the host to re-enumerate and upload.
++        bootloader_jump();
++    }
++}
++
++#endif  // VIRTSER_ENABLE
+diff --git a/keyboards/hackman3d/orbit_controller/orbit_controller.c b/keyboards/hackman3d/orbit_controller/orbit_controller.c
+new file mode 100644
+index 0000000000..aa1f7197f9
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/orbit_controller.c
+@@ -0,0 +1,80 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include "orbit_controller.h"
++
++/* ========================================================================
++ * SCAFFOLD - Phase 2 of qmk/06_TASKLIST.md
++ *
++ * This file currently establishes only the pin table and the setup()/loop()
++ * skeleton so the keyboard builds and enumerates. The axis pipeline, chord
++ * state machine, slicer mode, LEDs and VIA handler are added in Phases 3-9.
++ *
++ * The commented-out calls below are the intended final structure, mirroring
++ * setup() and loop() from Hackman3D_Orbit_Controller.ino v1.1.0.
++ * ===================================================================== */
++
++const pin_t orbit_analog_pins[ORBIT_SENSOR_COUNT] = {
++    F6, F7, F4, F5, D7, D4, B5, B4
++};
++
++orbit_axes_t orbit_axes = {0};
++
++/* ------------------------------------------------------------------------
++ * keyboard_post_init_kb() == Arduino setup()
++ *
++ * Original order (.ino:577-592):
++ *   1. append HID descriptor      (handled by QMK/the tmk_core fork)
++ *   2. Serial.begin if debugging  (CONSOLE_ENABLE, debug keymap only)
++ *   3. button pins INPUT_PULLUP   (handled by matrix_pins.direct)
++ *   4. LED pins OUTPUT, both HIGH (= off)
++ *   5. eepromLoad()
++ *   6. delay(800)                 <- settle time, do not remove
++ *   7. calibrateCenter()
++ *   8. ledSignalSpeedMode()
++ * ---------------------------------------------------------------------- */
++void keyboard_post_init_kb(void) {
++    // orbit_leds_init();
++    // orbit_config_load();
++
++    // The 800 ms settle delay before calibration is load-bearing: the Hall
++    // sensors need time to stabilise after power-on or the computed centres
++    // drift and every axis reads off-zero.
++    // wait_ms(800);
++
++    // orbit_calibrate_center();
++    // orbit_leds_signal_speed_mode(orbit_config_speed_mode());
++
++    keyboard_post_init_user();
++}
++
++/* ------------------------------------------------------------------------
++ * housekeeping_task_kb() == Arduino loop()
++ * ---------------------------------------------------------------------- */
++void housekeeping_task_kb(void) {
++    // orbit_chords_task();     // debounce, chord detect, mode toggles
++    // orbit_axes_task();       // 8x ADC -> orbit_axes (steps 1-14)
++    //
++    // if (orbit_slicer_enabled()) {
++    //     // Zero the 6DOF axes and buttons so CAD apps don't drift while
++    //     // the device is acting as a mouse.
++    //     orbit_6dof_send(0, 0, 0, 0, 0, 0);
++    //     orbit_6dof_send_buttons(0);
++    //     orbit_slicer_keys_task();
++    //     // mouse deltas are emitted by pointing_device_driver_get_report()
++    // } else {
++    //     orbit_slicer_release_buttons();
++    //
++    //     // NOTE the Y/Z transposition. sendCommand()'s parameters are
++    //     // (rx, ry, rz, x, y, z) but the Arduino firmware calls it as
++    //     // sendCommand(oRX, oRZ, oRY, oTX, oTZ, oTY) - the 3Dconnexion
++    //     // coordinate convention. This swap is load-bearing.
++    //     orbit_6dof_send(orbit_axes.rx, orbit_axes.rz, orbit_axes.ry,
++    //                     orbit_axes.tx, orbit_axes.tz, orbit_axes.ty);
++    //     orbit_6dof_send_buttons(orbit_hid_button_mask());
++    // }
++    //
++    // orbit_leds_task();
++
++    housekeeping_task_user();
++}
+diff --git a/keyboards/hackman3d/orbit_controller/orbit_controller.h b/keyboards/hackman3d/orbit_controller/orbit_controller.h
+new file mode 100644
+index 0000000000..91adbd67f0
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/orbit_controller.h
+@@ -0,0 +1,103 @@
++// Copyright 2026 HackMan3D
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++#include QMK_KEYBOARD_H
++#include <stdint.h>
++#include <stdbool.h>
++
++/* ========================================================================
++ * Layers
++ * ===================================================================== */
++enum orbit_layers {
++    _BASE        = 0,  // 6DOF mode
++    _SLICER      = 1,  // slicer mouse mode, short-press actions
++    _SLICER_LONG = 2,  // slicer mouse mode, long-press actions
++};
++
++/* ========================================================================
++ * Hardware
++ * ===================================================================== */
++
++#define ORBIT_SENSOR_COUNT 8
++#define ORBIT_BUTTON_COUNT 3
++
++/* Analog channel order is load-bearing: the axis math in orbit_axes.c refers
++ * to sensors by their index in this array, mirroring pins[8] in the Arduino
++ * firmware ({A1, A0, A3, A2, A7, A6, A9, A8}).
++ *
++ *   idx | Arduino | 32U4 | ADC   | QMK
++ *   ----+---------+------+-------+----
++ *    0  | A1      | PF6  | ADC6  | F6
++ *    1  | A0      | PF7  | ADC7  | F7
++ *    2  | A3      | PF4  | ADC4  | F4
++ *    3  | A2      | PF5  | ADC5  | F5
++ *    4  | A7      | PD7  | ADC10 | D7
++ *    5  | A6      | PD4  | ADC8  | D4
++ *    6  | A9      | PB5  | ADC12 | B5
++ *    7  | A8      | PB4  | ADC11 | B4
++ *
++ * NOTE: A0 = PF7 and A1 = PF6 on the Pro Micro - the Arduino analog numbering
++ * runs opposite to the port bit numbering. The mapping above is correct; do
++ * not "fix" the apparent transposition.
++ *
++ * Even indices (0,2,4,6) are the push/pull group, odd (1,3,5,7) the twist
++ * group. See qmk/01_FIRMWARE_INVENTORY.md section 3.
++ */
++extern const pin_t orbit_analog_pins[ORBIT_SENSOR_COUNT];
++
++/* Pro Micro on-board LEDs, both active LOW. */
++#define ORBIT_LED_TX D5
++#define ORBIT_LED_RX B0
++
++/* ========================================================================
++ * 6DOF axis output
++ *
++ * Produced by orbit_axes_task() once per scan and consumed by both
++ * orbit_6dof.c (multi-axis reports) and orbit_slicer.c (mouse deltas).
++ * The slicer path must READ this cache, never re-run the pipeline - the
++ * pipeline carries smoothing state and running it twice per scan would
++ * double the smoothing rate.
++ * ===================================================================== */
++typedef struct {
++    int16_t tx, ty, tz;
++    int16_t rx, ry, rz;
++} orbit_axes_t;
++
++extern orbit_axes_t orbit_axes;
++
++/* ========================================================================
++ * Module entry points
++ * ===================================================================== */
++
++/* orbit_axes.c */
++void orbit_axes_init(void);
++void orbit_axes_task(void);
++void orbit_calibrate_center(void);
++void orbit_reset_smoothing(void);
++bool orbit_calibration_failed(void);
++
++/* orbit_chords.c */
++void     orbit_chords_task(void);
++uint32_t orbit_hid_button_mask(void);
++uint32_t orbit_raw_button_mask(void);
++bool     orbit_chord_active(void);
++
++/* orbit_6dof.c */
++void orbit_6dof_send(int16_t rx, int16_t ry, int16_t rz,
++                     int16_t x,  int16_t y,  int16_t z);
++void orbit_6dof_send_buttons(uint32_t buttons);
++
++/* orbit_slicer.c */
++bool orbit_slicer_enabled(void);
++void orbit_slicer_set_enabled(bool enabled);
++void orbit_slicer_keys_task(void);
++void orbit_slicer_release_buttons(void);
++
++/* orbit_leds.c */
++void orbit_leds_init(void);
++void orbit_leds_task(void);
++void orbit_leds_signal_speed_mode(uint8_t mode);
++void orbit_leds_signal_slicer_mode(bool enabled);
++void orbit_leds_flash_calibration_error(void);
+diff --git a/keyboards/hackman3d/orbit_controller/readme.md b/keyboards/hackman3d/orbit_controller/readme.md
+new file mode 100644
+index 0000000000..c38819a956
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/readme.md
+@@ -0,0 +1,83 @@
++# HackMan3D Orbit Controller
++
++A DIY 6DOF SpaceMouse-compatible controller: four JH16 Hall-effect joysticks (8 analog
++channels) plus 3 buttons on an Arduino Pro Micro (ATmega32U4).
++
++This is the QMK port of the Arduino firmware. Design docs, the porting task list, and the
++VIA definition JSON live in the project repo:
++<https://github.com/HackMan3D/HackMan3D-Orbit-Controller> under `qmk/`.
++
++* Keyboard Maintainer: [HackMan3D](https://github.com/HackMan3D)
++* Hardware Supported: Arduino Pro Micro (ATmega32U4), 4x JH16 joystick, 3x button
++* Hardware Availability: <https://github.com/HackMan3D/HackMan3D-Orbit-Controller>
++
++## Status
++
++**Work in progress — scaffold only.** See `qmk/06_TASKLIST.md` in the project repo for the
++phased plan. Currently implements Phase 2 (builds and enumerates); the axis pipeline, chord
++logic, slicer mouse mode and VIA live tuning are not yet wired up.
++
++## Requires a patched QMK
++
++This keyboard emits a **3Dconnexion-style Multi-axis Controller** HID descriptor (Generic
++Desktop usage `0x08`, with translation / rotation / button split across Report IDs 1/2/3).
++Stock QMK's joystick feature is hardcoded to usage `0x04` (Joystick) with a single combined
++report, which the 3DxWare driver will not bind to.
++
++The port therefore depends on a small patch to `tmk_core/protocol/` gated behind
++`JOYSTICK_MULTIAXIS_ENABLE`. See `qmk/03_HID_DESCRIPTOR_FORK.md` in the project repo, and
++`qmk/patches/` for the patch itself.
++
++Without that patch this keyboard will build but present as a generic 6-axis joystick.
++
++## Building
++
++    make hackman3d/orbit_controller:default        # 6DOF only
++    make hackman3d/orbit_controller:viam           # + VIA live keymap & tuning
++    make hackman3d/orbit_controller:default:flash  # build and flash
++
++Or with the CLI:
++
++    qmk compile -kb hackman3d/orbit_controller -km viam
++
++### If `qmk compile` says "invalid keyboard_folder_or_all value"
++
++That means the QMK CLI is pointed at a *different* QMK tree than the one containing this
++keyboard. Check where it is looking:
++
++    qmk config user.qmk_home
++
++If it is not the checkout holding `keyboards/hackman3d/`, either point it here:
++
++    qmk config user.qmk_home=/path/to/this/qmk_firmware
++
++…or bypass the CLI and use `make` from the root of this tree, which resolves keyboards
++relative to the current directory. Note that the `QMK_HOME` **environment variable does not
++override** `user.qmk_home` — the CLI reads its config file, so exporting it has no effect.
++
++### Why the VIA keymap is called `viam`, not `via`
++
++QMK master rejects keymaps named `via`: `.gitignore` lists
++`/keyboards/**/keymaps/via/*`, and `qmk lint` fails with *"The keymap via should not exist!"*
++VIA keymaps were deprecated from the main repository. The keymap is therefore named `viam`
++(the convention used by the `ploopy_viamenus` project); it still sets `VIA_ENABLE = yes` and
++produces VIA-capable firmware.
++
++See the [build environment setup](https://docs.qmk.fm/#/getting_started_build_tools) and the
++[make instructions](https://docs.qmk.fm/#/getting_started_make_guide) for more information.
++Brand new to QMK? Start with our [Complete Newbs Guide](https://docs.qmk.fm/#/newbs).
++
++## Bootloader
++
++The Pro Micro uses the **Caterina** bootloader. Enter it by:
++
++* **Physical reset**: short RST to GND twice quickly.
++* **Bootmagic reset**: not available — `bootmagic` is disabled because all three buttons are
++  used by chords.
++* **Keycode in layout**: press the key mapped to `QK_BOOT` if you have added one.
++
++Caterina's bootloader window is short (~750 ms), so `make ...:flash` should be started before
++or immediately as you double-tap reset.
++
++You can flash freely between this firmware and the original Arduino sketch — the bootloader is
++untouched.
+diff --git a/keyboards/hackman3d/orbit_controller/rules.mk b/keyboards/hackman3d/orbit_controller/rules.mk
+new file mode 100644
+index 0000000000..7d052553eb
+--- /dev/null
++++ b/keyboards/hackman3d/orbit_controller/rules.mk
+@@ -0,0 +1,35 @@
++# The 8 Hall-effect joystick channels are read with analogReadPin().
++ANALOG_DRIVER_REQUIRED = yes
++
++# Slicer mouse mode builds its own report_mouse_t in
++# pointing_device_driver_get_report().
++POINTING_DEVICE_DRIVER = custom
++
++# CDC serial interface disabled: with the dedicated multi-axis joystick
++# endpoint, VIRTSER would require 3 extra endpoints (7 total), which
++# exceeds the ATmega32U4's 6-endpoint limit (EP0 control + 6 usable).
++# The auto-reset via 1200-baud touch is therefore not available in this
++# build; use the physical reset button or qmk flash --no-serial-auto.
++# VIRTSER_ENABLE = yes
++# SRC += orbit_autoreset.c
++
++# Trims - none of these are meaningful for a 3-button 6DOF controller,
++# and turning them off is what keeps the VIA build comfortable on 28KB.
++MAGIC_ENABLE       = no
++GRAVE_ESC_ENABLE   = no
++SPACE_CADET_ENABLE = no
++
++# Tell protocol.mk not to force JOYSTICK_SHARED_EP; the multi-axis
++# descriptor needs its own dedicated interrupt endpoint (see Section 6
++# of qmk/03_HID_DESCRIPTOR_FORK.md).
++JOYSTICK_MULTIAXIS_ENABLE = yes
++
++# Added as each phase of qmk/06_TASKLIST.md lands. orbit_controller.c is
++# compiled automatically by QMK (it matches the keyboard directory name).
++#SRC += orbit_logic.c \
++#       orbit_config.c \
++#       orbit_axes.c \
++#       orbit_chords.c \
++#       orbit_slicer.c \
++#       orbit_6dof.c \
++#       orbit_leds.c
+diff --git a/tmk_core/protocol.mk b/tmk_core/protocol.mk
+index 81520c1bc8..69f450ca17 100644
+--- a/tmk_core/protocol.mk
++++ b/tmk_core/protocol.mk
+@@ -1,8 +1,8 @@
+ SRC +=	\
+-	$(PROTOCOL_DIR)/host.c \
+-	$(PROTOCOL_DIR)/report.c \
+-	$(PROTOCOL_DIR)/usb_device_state.c \
+-	$(PROTOCOL_DIR)/usb_util.c \
++		$(PROTOCOL_DIR)/host.c \
++		$(PROTOCOL_DIR)/report.c \
++		$(PROTOCOL_DIR)/usb_device_state.c \
++		$(PROTOCOL_DIR)/usb_util.c \
+ 
+ SHARED_EP_ENABLE = no
+ MOUSE_SHARED_EP ?= yes
+@@ -65,7 +65,9 @@ endif
+ 
+ ifeq ($(strip $(JOYSTICK_ENABLE)), yes)
+     OPT_DEFS += -DJOYSTICK_ENABLE
+-    ifeq ($(strip $(SHARED_EP_ENABLE)), yes)
++    ifeq ($(strip $(JOYSTICK_MULTIAXIS_ENABLE)), yes)
++        OPT_DEFS += -DJOYSTICK_MULTIAXIS_ENABLE
++    else ifeq ($(strip $(SHARED_EP_ENABLE)), yes)
+         OPT_DEFS += -DJOYSTICK_SHARED_EP
+         SHARED_EP_ENABLE = yes
+     endif
+diff --git a/tmk_core/protocol/lufa/lufa.c b/tmk_core/protocol/lufa/lufa.c
+index 3e442ba033..2438c29483 100644
+--- a/tmk_core/protocol/lufa/lufa.c
++++ b/tmk_core/protocol/lufa/lufa.c
+@@ -559,6 +559,23 @@ void send_joystick(report_joystick_t *report) {
+ #endif
+ }
+ 
++#ifdef JOYSTICK_MULTIAXIS_ENABLE
++void send_multiaxis(int16_t x, int16_t y, int16_t z, int16_t rx, int16_t ry, int16_t rz) {
++    report_multiaxis_trans_t t = {
++        .report_id = REPORT_ID_MULTIAXIS_TRANS, .x = x, .y = y, .z = z };
++    report_multiaxis_rot_t r = {
++        .report_id = REPORT_ID_MULTIAXIS_ROT, .rx = rx, .ry = ry, .rz = rz };
++    send_report(JOYSTICK_IN_EPNUM, &t, sizeof(t));
++    send_report(JOYSTICK_IN_EPNUM, &r, sizeof(r));
++}
++
++void send_multiaxis_buttons(uint32_t buttons) {
++    report_multiaxis_btn_t b = {
++        .report_id = REPORT_ID_MULTIAXIS_BTN, .buttons = buttons };
++    send_report(JOYSTICK_IN_EPNUM, &b, sizeof(b));
++}
++#endif
++
+ void send_programmable_button(report_programmable_button_t *report) {
+ #ifdef PROGRAMMABLE_BUTTON_ENABLE
+     send_report(SHARED_IN_EPNUM, report, sizeof(report_programmable_button_t));
+diff --git a/tmk_core/protocol/report.h b/tmk_core/protocol/report.h
+index ec220c6938..127e595a52 100644
+--- a/tmk_core/protocol/report.h
++++ b/tmk_core/protocol/report.h
+@@ -264,6 +264,31 @@ typedef struct {
+ #endif
+ } PACKED report_joystick_t;
+ 
++#ifdef JOYSTICK_MULTIAXIS_ENABLE
++#    define REPORT_ID_MULTIAXIS_TRANS  1
++#    define REPORT_ID_MULTIAXIS_ROT    2
++#    define REPORT_ID_MULTIAXIS_BTN    3
++
++typedef struct {
++    uint8_t report_id;
++    int16_t x;
++    int16_t y;
++    int16_t z;
++} __attribute__((packed)) report_multiaxis_trans_t;
++
++typedef struct {
++    uint8_t report_id;
++    int16_t rx;
++    int16_t ry;
++    int16_t rz;
++} __attribute__((packed)) report_multiaxis_rot_t;
++
++typedef struct {
++    uint8_t  report_id;
++    uint32_t buttons;
++} __attribute__((packed)) report_multiaxis_btn_t;
++#endif
++
+ /* keycode to system usage */
+ static inline uint16_t KEYCODE2SYSTEM(uint8_t key) {
+     switch (key) {
+diff --git a/tmk_core/protocol/usb_descriptor.c b/tmk_core/protocol/usb_descriptor.c
+index 38abb3781c..1e68dab6ab 100644
+--- a/tmk_core/protocol/usb_descriptor.c
++++ b/tmk_core/protocol/usb_descriptor.c
+@@ -226,6 +226,7 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM SharedReport[] = {
+ #endif
+ 
+ #ifdef JOYSTICK_ENABLE
++#    ifndef JOYSTICK_MULTIAXIS_ENABLE
+ #    ifndef JOYSTICK_SHARED_EP
+ const USB_Descriptor_HIDReport_Datatype_t PROGMEM JoystickReport[] = {
+ #    elif !defined(SHARED_REPORT_STARTED)
+@@ -309,6 +310,7 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM SharedReport[] = {
+ #    ifndef JOYSTICK_SHARED_EP
+ };
+ #    endif
++#    endif /* !JOYSTICK_MULTIAXIS_ENABLE */
+ #endif
+ 
+ #ifdef DIGITIZER_ENABLE
+@@ -453,6 +455,47 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM SharedReport[] = {
+ #ifdef SHARED_EP_ENABLE
+ };
+ #endif
++#if defined(JOYSTICK_ENABLE) && defined(JOYSTICK_MULTIAXIS_ENABLE)
++const USB_Descriptor_HIDReport_Datatype_t PROGMEM JoystickReport[] = {
++    HID_RI_USAGE_PAGE(8, 0x01),
++    HID_RI_USAGE(8, 0x08),             // Multi-axis Controller
++    HID_RI_COLLECTION(8, 0x01),
++        HID_RI_COLLECTION(8, 0x00),
++            HID_RI_REPORT_ID(8, 0x01),
++            HID_RI_LOGICAL_MINIMUM(16, -32768),
++            HID_RI_LOGICAL_MAXIMUM(16, 32767),
++            HID_RI_PHYSICAL_MINIMUM(16, -32768),
++            HID_RI_PHYSICAL_MAXIMUM(16, 32767),
++            HID_RI_USAGE(8, 0x30), HID_RI_USAGE(8, 0x31), HID_RI_USAGE(8, 0x32),
++            HID_RI_REPORT_SIZE(8, 16),
++            HID_RI_REPORT_COUNT(8, 3),
++            HID_RI_INPUT(8, HID_IOF_DATA | HID_IOF_VARIABLE | HID_IOF_ABSOLUTE),
++        HID_RI_END_COLLECTION(0),
++        HID_RI_COLLECTION(8, 0x00),
++            HID_RI_REPORT_ID(8, 0x02),
++            HID_RI_LOGICAL_MINIMUM(16, -32768),
++            HID_RI_LOGICAL_MAXIMUM(16, 32767),
++            HID_RI_PHYSICAL_MINIMUM(16, -32768),
++            HID_RI_PHYSICAL_MAXIMUM(16, 32767),
++            HID_RI_USAGE(8, 0x33), HID_RI_USAGE(8, 0x34), HID_RI_USAGE(8, 0x35),
++            HID_RI_REPORT_SIZE(8, 16),
++            HID_RI_REPORT_COUNT(8, 3),
++            HID_RI_INPUT(8, HID_IOF_DATA | HID_IOF_VARIABLE | HID_IOF_ABSOLUTE),
++        HID_RI_END_COLLECTION(0),
++        HID_RI_COLLECTION(8, 0x00),
++            HID_RI_REPORT_ID(8, 0x03),
++            HID_RI_LOGICAL_MINIMUM(8, 0x00),
++            HID_RI_LOGICAL_MAXIMUM(8, 0x01),
++            HID_RI_REPORT_SIZE(8, 1),
++            HID_RI_REPORT_COUNT(8, 32),
++            HID_RI_USAGE_PAGE(8, 0x09),
++            HID_RI_USAGE_MINIMUM(8, 1),
++            HID_RI_USAGE_MAXIMUM(8, 32),
++            HID_RI_INPUT(8, HID_IOF_DATA | HID_IOF_VARIABLE | HID_IOF_ABSOLUTE),
++        HID_RI_END_COLLECTION(0),
++    HID_RI_END_COLLECTION(0),
++};
++#endif /* JOYSTICK_ENABLE && JOYSTICK_MULTIAXIS_ENABLE */
+ 
+ #ifdef RAW_ENABLE
+ const USB_Descriptor_HIDReport_Datatype_t PROGMEM RawReport[] = {
+-- 
+2.53.0.windows.2
+
