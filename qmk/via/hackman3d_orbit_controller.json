@@ -1,0 +1,192 @@
+{
+  "name": "HackMan3D Orbit Controller",
+  "vendorProductId": 626393137,
+  "matrix": { "rows": 1, "cols": 3 },
+  "layouts": {
+    "keymap": [
+      ["0,0", "0,1", "0,2"]
+    ]
+  },
+  "menus": [
+    {
+      "label": "Axes",
+      "content": [
+        {
+          "label": "Deadzones & smoothing",
+          "content": [
+            { "label": "Input deadzone", "type": "range", "options": [0, 200],
+              "content": ["id_deadzone_input", 0, 1] },
+            { "label": "Output deadzone", "type": "range", "options": [0, 200],
+              "content": ["id_deadzone_output", 0, 2] },
+            { "label": "Smoothing divisor", "type": "range", "options": [1, 32],
+              "content": ["id_smooth_divisor", 0, 3] }
+          ]
+        },
+        {
+          "label": "Gains (value / 256)",
+          "content": [
+            { "label": "Translation X", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_tx", 0, 4] },
+            { "label": "Translation Y", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_ty", 0, 5] },
+            { "label": "Translation Z", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_tz", 0, 6] },
+            { "label": "Rotation X", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_rx", 0, 7] },
+            { "label": "Rotation Y", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_ry", 0, 8] },
+            { "label": "Rotation Z", "type": "range", "options": [26, 2560],
+              "content": ["id_gain_rz", 0, 9] }
+          ]
+        },
+        {
+          "label": "Invert axes",
+          "content": [
+            { "label": "Invert X", "type": "toggle",
+              "content": ["id_invert_x", 0, 10] },
+            { "label": "Invert Y", "type": "toggle",
+              "content": ["id_invert_y", 0, 11] },
+            { "label": "Invert Z", "type": "toggle",
+              "content": ["id_invert_z", 0, 12] },
+            { "label": "Invert RX", "type": "toggle",
+              "content": ["id_invert_rx", 0, 13] },
+            { "label": "Invert RY", "type": "toggle",
+              "content": ["id_invert_ry", 0, 14] },
+            { "label": "Invert RZ", "type": "toggle",
+              "content": ["id_invert_rz", 0, 15] }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Speed",
+      "content": [
+        {
+          "label": "Speed modes",
+          "content": [
+            { "label": "Active mode", "type": "dropdown",
+              "options": [["Slow / precision", 0], ["Default", 1], ["Fast", 2]],
+              "content": ["id_speed_mode", 1, 1] },
+            { "label": "Mode 0 scale (/256)", "type": "range", "options": [26, 256],
+              "content": ["id_speed_scale_0", 1, 2] },
+            { "label": "Mode 1 scale (/256)", "type": "range", "options": [26, 256],
+              "content": ["id_speed_scale_1", 1, 3] },
+            { "label": "Mode 2 scale (/256)", "type": "range", "options": [26, 256],
+              "content": ["id_speed_scale_2", 1, 4] },
+            { "label": "Mode 0 curve", "type": "dropdown",
+              "options": [["1.9 precision", 0], ["1.6 default", 1], ["1.3 fast", 2]],
+              "content": ["id_curve_0", 1, 5] },
+            { "label": "Mode 1 curve", "type": "dropdown",
+              "options": [["1.9 precision", 0], ["1.6 default", 1], ["1.3 fast", 2]],
+              "content": ["id_curve_1", 1, 6] },
+            { "label": "Mode 2 curve", "type": "dropdown",
+              "options": [["1.9 precision", 0], ["1.6 default", 1], ["1.3 fast", 2]],
+              "content": ["id_curve_2", 1, 7] }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Filters",
+      "content": [
+        {
+          "label": "Rotation priority",
+          "content": [
+            { "label": "Priority (/256)", "type": "range", "options": [0, 512],
+              "content": ["id_rot_priority", 2, 1] },
+            { "label": "Activation threshold", "type": "range", "options": [0, 1000],
+              "content": ["id_rot_priority_thr", 2, 2] }
+          ]
+        },
+        {
+          "label": "Z-axis detection",
+          "content": [
+            { "label": "Push/pull threshold mult", "type": "range", "options": [1, 10],
+              "content": ["id_z_pushpull_mult", 2, 3] },
+            { "label": "Twist threshold mult", "type": "range", "options": [1, 10],
+              "content": ["id_z_rotation_mult", 2, 4] },
+            { "label": "Twist divisor", "type": "range", "options": [1, 8],
+              "content": ["id_z_rotation_div", 2, 5] },
+            { "label": "Dominant axis only", "type": "toggle",
+              "content": ["id_dominant_axis", 2, 6] }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Slicer",
+      "content": [
+        {
+          "label": "Slicer mouse mode",
+          "content": [
+            { "label": "Slicer mode active", "type": "toggle",
+              "content": ["id_slicer_active", 3, 1] },
+            { "label": "Move divisor", "type": "range", "options": [10, 500],
+              "content": ["id_slicer_move_div", 3, 2] },
+            { "label": "Max move per report", "type": "range", "options": [1, 64],
+              "content": ["id_slicer_max_move", 3, 5] },
+            { "label": "Auto drag", "type": "toggle",
+              "content": ["id_slicer_auto_drag", 3, 9] },
+            { "label": "Drag button", "type": "dropdown",
+              "options": [["Left", 1], ["Right", 2], ["Middle", 4]],
+              "content": ["id_slicer_drag_btn", 3, 10] },
+            { "label": "Long press (ms)", "type": "range", "options": [200, 2000],
+              "content": ["id_slicer_long_ms", 3, 11] }
+          ]
+        },
+        {
+          "label": "Zoom / wheel",
+          "content": [
+            { "label": "Wheel threshold", "type": "range", "options": [10, 1000],
+              "content": ["id_slicer_wheel_thr", 3, 3] },
+            { "label": "Wheel full scale", "type": "range", "options": [100, 2000],
+              "content": ["id_slicer_wheel_full", 3, 4] },
+            { "label": "Max wheel steps", "type": "range", "options": [1, 8],
+              "content": ["id_slicer_max_wheel", 3, 6] },
+            { "label": "Fastest repeat (ms)", "type": "range", "options": [10, 250],
+              "content": ["id_slicer_wheel_min", 3, 7] },
+            { "label": "Slowest repeat (ms)", "type": "range", "options": [10, 250],
+              "content": ["id_slicer_wheel_max", 3, 8] }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "System",
+      "content": [
+        {
+          "label": "Button timings",
+          "content": [
+            { "label": "Debounce (ms)", "type": "range", "options": [0, 100],
+              "content": ["id_btn_debounce", 4, 1] },
+            { "label": "Chord window (ms)", "type": "range", "options": [50, 2000],
+              "content": ["id_chord_window", 4, 2] },
+            { "label": "Speed switch lockout (ms)", "type": "range", "options": [100, 2000],
+              "content": ["id_mode_debounce", 4, 3] },
+            { "label": "Slicer toggle hold (ms)", "type": "range", "options": [50, 2000],
+              "content": ["id_slicer_hold", 4, 4] },
+            { "label": "Slicer toggle lockout (ms)", "type": "range", "options": [100, 2000],
+              "content": ["id_slicer_debounce", 4, 5] },
+            { "label": "Suppress chord buttons", "type": "toggle",
+              "content": ["id_suppress_chord", 4, 6] }
+          ]
+        },
+        {
+          "label": "Calibration",
+          "content": [
+            { "label": "Samples", "type": "range", "options": [10, 255],
+              "content": ["id_calib_samples", 4, 7] },
+            { "label": "Valid center min", "type": "range", "options": [0, 1023],
+              "content": ["id_calib_min", 4, 8] },
+            { "label": "Valid center max", "type": "range", "options": [0, 1023],
+              "content": ["id_calib_max", 4, 9] },
+            { "label": "Recalibrate now", "type": "toggle",
+              "content": ["id_recalibrate", 4, 10] },
+            { "label": "Reset all to defaults", "type": "toggle",
+              "content": ["id_reset_defaults", 4, 11] }
+          ]
+        }
+      ]
+    }
+  ]
+}
