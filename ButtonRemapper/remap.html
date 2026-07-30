@@ -148,7 +148,7 @@
 <body>
 
 <h1>Hackman3D Button Remapper</h1>
-<p class="subtitle">Slicer layer — edits Hackman3D_Orbit_Controller.ino directly</p>
+<p class="subtitle">Slicer layer — saves a timestamped copy of Hackman3D_Orbit_Controller.ino (original untouched)</p>
 
 <div class="open-bar">
   <button class="btn btn-open" onclick="openFile()">Open .ino file</button>
@@ -161,7 +161,7 @@
   <hr class="divider">
 
   <div class="save-bar">
-    <button class="btn btn-primary" onclick="onSave()">Save to .ino</button>
+    <button class="btn btn-primary" onclick="onSave()">Save new .ino</button>
     <button class="btn btn-secondary" onclick="onReset()">Reset changes</button>
     <span class="status" id="status"></span>
   </div>
@@ -312,15 +312,14 @@ function applyPatch(text, patch) {
   return out;
 }
 
-function makeBackup(text, name) {
-  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
-  const bname = `${name}.backup_${ts}`;
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([text], {type:'text/plain'})),
-    download: bname,
-  });
-  a.click();
-  return bname;
+function timestampedName(name) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const dot = name.lastIndexOf('.');
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext  = dot > 0 ? name.slice(dot) : '';
+  return `${base}_${ts}${ext}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -351,10 +350,18 @@ async function openFile() {
   }
 }
 
-async function writeFile(text) {
-  const w = await fileHandle.createWritable();
+async function saveNewVersion(text) {
+  // Prompt to save a new timestamped file, starting in the same
+  // directory as the original file. The original is never modified.
+  const newHandle = await window.showSaveFilePicker({
+    suggestedName: timestampedName(fileHandle.name),
+    startIn: fileHandle,
+    types: [{ description: 'Arduino sketch', accept: { 'text/plain': ['.ino'] } }],
+  });
+  const w = await newHandle.createWritable();
   await w.write(text);
   await w.close();
+  return newHandle.name;
 }
 
 // ---------------------------------------------------------------------------
@@ -522,13 +529,12 @@ function updateHeaderSummary(bi) {
 async function onSave() {
   setStatus('Saving…');
   try {
-    const backupName = makeBackup(originalText, fileHandle.name);
     const patched = applyPatch(originalText, draft);
-    await writeFile(patched);
-    originalText = patched;
+    const savedName = await saveNewVersion(patched);
     state = JSON.parse(JSON.stringify(draft));
-    setStatus(`Saved. Backup downloaded: ${backupName}`, 'ok');
+    setStatus(`Saved as ${savedName} — original file unchanged.`, 'ok');
   } catch (e) {
+    if (e.name === 'AbortError') { setStatus(''); return; }
     setStatus('Save failed: ' + e.message, 'error');
   }
 }
