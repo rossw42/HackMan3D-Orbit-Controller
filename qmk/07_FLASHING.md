@@ -124,6 +124,32 @@ avrdude -p atmega32u4 -c avr109 -P COM7 \
 
 Adjust `COM7`. The `.hex` is written to the root of the QMK tree by the build.
 
+### Where the `.hex` lives (and how to get it back)
+
+Each build writes **two copies**:
+
+| Path | Purpose |
+|---|---|
+| `.build/hackman3d_orbit_controller_viam.hex` | canonical build output |
+| `hackman3d_orbit_controller_viam.hex` (tree root) | convenience copy for flashing |
+
+If the root copy is missing — deleted during cleanup, say — you do **not** need to rebuild:
+
+```bash
+cp .build/hackman3d_orbit_controller_viam.hex .
+```
+
+To confirm a `.hex` is complete, check that its last line is the Intel HEX EOF record and that
+the size matches the build:
+
+```bash
+tail -1 hackman3d_orbit_controller_viam.hex     # must be  :00000001FF
+avr-size --target=ihex hackman3d_orbit_controller_viam.hex
+```
+
+Expect **10,574 bytes** for `default` and **11,920** for `viam`. Note the on-disk file is
+~33 KB — that is Intel HEX ASCII encoding, roughly 3× the real flash figure, not a problem.
+
 ---
 
 ## After flashing — what to check
