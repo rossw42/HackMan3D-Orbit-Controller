@@ -11,9 +11,13 @@ Requires only `gcc` and `libm`. On Windows, run from a QMK MSYS shell.
 | `lut_bug_check.c` | Proves the curve-LUT bug existed (frozen copy of the old table) | exit 1 |
 | `lut_fix_verify.c` | Regression test for the fix, compiled against the **live** header | exit 0 |
 | `input_max_check.c` | Validates all six `INPUT_MAX_*` constants against the real pipeline | exit 0 |
+| `avr_target_check.sh` | Compiles for **atmega32u4** and measures the tables' flash cost | exit 0 |
 
 > `lut_fix_verify.c` and `input_max_check.c` need **`g++`**, not `gcc` — `orbit_logic.h` uses
 > C++ reference parameters.
+>
+> The three `.c` tests run on the host, which proves the *math* but not that the code is valid
+> for the target. `avr_target_check.sh` closes that gap.
 
 ## `lut_bug_check.c` — the bug (historical record)
 
@@ -68,6 +72,30 @@ though both Z axes sum four channels, which looks like a bug and was initially r
 one. It isn't: `rotZ` is divided by `Z_ROTATION_DIVISOR` (=2), halving the four-channel sum
 back to a two-channel-equivalent range. Raising RZ to 2048 would have cost it roughly two
 thirds of its output. **Testing before editing prevented a regression here.**
+
+## `avr_target_check.sh` — target compilation & flash cost
+
+Builds `orbit_logic.h` with the QMK AVR toolchain for atmega32u4 under
+`-Wall -Wextra -Werror=overflow`, then measures the three curve tables via `avr-nm`.
+
+```bash
+./avr_target_check.sh          # or: AVRGPP=/path/to/avr-g++ ./avr_target_check.sh
+```
+
+Measured result:
+
+```
+toolchain: avr-g++ (crosstool-NG ... qmk/qmk_toolchains) 15.2.0
+OK: compiles clean (no overflow warnings)
+three CURVE_TABLE_* arrays: 384 bytes     (uint16_t: 3 x 64 x 2)
+  -> the fix costs +192 bytes vs the original uint8_t tables
+```
+
+This confirms the "+192 bytes" figure quoted in the docs is real, not arithmetic on paper. The
+test uses a `volatile` index so the compiler cannot constant-fold the tables out of existence —
+without that, `-Os` elides them entirely and the measurement reads zero.
+
+Skips cleanly (exit 0) if no AVR toolchain is present, so it's safe in CI.
 
 ## Planned: `reference_pipeline.c` (Phase 0)
 

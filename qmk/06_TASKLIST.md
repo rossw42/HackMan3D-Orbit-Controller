@@ -288,6 +288,17 @@ norm8   old (broken)   new (fixed)   change
 The change is **surgical**: identical below norm8 220, restores full scale above it. Also
 confirmed: `g++ -Wall` now emits **zero** `-Woverflow` warnings (it previously emitted 8).
 
+**Verified on the real target too** (`qmk/test/avr_target_check.sh`) — the host tests prove the
+math but not that the code is valid for AVR:
+
+```
+toolchain: avr-g++ (qmk/qmk_toolchains) 15.2.0
+OK: compiles clean for atmega32u4 (-Wall -Wextra -Werror=overflow)
+three CURVE_TABLE_* arrays: 384 bytes   ->  the fix costs exactly +192 bytes
+```
+
+The +192 figure is therefore measured, not arithmetic on paper.
+
 #### Expected behaviour change on hardware
 
 Only the **top ~14 % of deflection** on any axis is affected. Previously the axis went *dead*
