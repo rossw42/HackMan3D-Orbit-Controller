@@ -2,8 +2,10 @@
 
 Target: `d:\GitHub2\qmk_firmware\keyboards\hackman3d\orbit_controller\`
 
-QMK checkout: **0.33.8+3** (`2dc5e397`), branch `master`, `keyboards/hackman3d/` currently
-empty.
+QMK checkout: **0.33.8+3** (`2dc5e397`), branch `master`.
+
+**Status:** scaffolded and building — `default` = 10,574 B, `via` = 11,920 B. Files marked
+*(planned)* below do not exist yet; they land in Phases 3–9 of `06_TASKLIST.md`.
 
 ---
 
@@ -14,21 +16,23 @@ keyboards/hackman3d/
 └── orbit_controller/
     ├── keyboard.json            # data-driven config: MCU, pins, matrix, USB IDs, features
     ├── config.h                 # things keyboard.json can't express
-    ├── rules.mk                 # ANALOG_DRIVER_REQUIRED, POINTING_DEVICE_DRIVER, LTO
-    ├── orbit_controller.c       # glue: post_init, housekeeping, LEDs, mode state
-    ├── orbit_controller.h       # shared types, custom keycode enum
-    ├── orbit_config.h/.c        # the live-tunable config struct + EEPROM load/save/defaults
-    ├── orbit_logic.h/.c         # PORTED VERBATIM from orbit_logic.h (fixed-point math)
-    ├── orbit_axes.c             # the 8-channel → 6DOF pipeline (steps 1–14 of inventory §3)
-    ├── orbit_chords.c           # PORTED from orbit_buttons.h (debounce + chord state machine)
-    ├── orbit_slicer.c           # slicer mouse mode: pointing_device driver + wheel repeat
-    ├── orbit_6dof.c             # multi-axis report assembly + send (Reports 1/2/3)
-    ├── orbit_via.c              # via_custom_value_command_kb() — live tuning handler
-    ├── orbit_leds.c             # TX/RX LED blink state machines
+    ├── rules.mk                 # ANALOG_DRIVER_REQUIRED, POINTING_DEVICE_DRIVER
+    ├── readme.md                # QMK-facing readme
+    ├── orbit_controller.c       # glue: post_init, housekeeping, pin table
+    ├── orbit_controller.h       # layer enum, pin table, axis cache, module API
+    ├── orbit_config.h/.c        # (planned) live-tunable config struct + EEPROM
+    ├── orbit_logic.h/.c         # (planned) PORTED from orbit_logic.h (fixed-point math)
+    ├── orbit_axes.c             # (planned) 8-channel → 6DOF pipeline (inventory §3)
+    ├── orbit_chords.c           # (planned) PORTED from orbit_buttons.h
+    ├── orbit_slicer.c           # (planned) pointing_device driver + wheel repeat
+    ├── orbit_6dof.c             # (planned) multi-axis report assembly (Reports 1/2/3)
+    ├── orbit_via.c              # (planned) via_custom_value_command_kb()
+    ├── orbit_leds.c             # (planned) TX/RX LED blink state machines
     └── keymaps/
-        ├── default/keymap.c     # 3 buttons, no VIA
+        ├── default/keymap.c     # 3 buttons × 3 layers, no VIA
         └── via/
             ├── keymap.c
+            ├── config.h         # DYNAMIC_KEYMAP_LAYER_COUNT 3, MACRO_COUNT 0
             └── rules.mk         # VIA_ENABLE = yes
 ```
 
@@ -114,7 +118,6 @@ QMK reads these with `analogReadPin(pin)`, which returns 10-bit (0–1023), iden
     "matrix_pins": {
         "direct": [["D1", "D0", "E6"]]
     },
-    "diode_direction": "COL2ROW",
     "features": {
         "bootmagic": false,
         "command": false,
@@ -124,6 +127,9 @@ QMK reads these with `analogReadPin(pin)`, which returns 10-bit (0–1023), iden
         "nkro": false,
         "joystick": true,
         "pointing_device": true
+    },
+    "build": {
+        "lto": true
     },
     "layouts": {
         "LAYOUT": {
@@ -153,21 +159,25 @@ Notes:
 ```make
 ANALOG_DRIVER_REQUIRED = yes
 POINTING_DEVICE_DRIVER = custom
-LTO_ENABLE = yes
-
-SRC += orbit_logic.c \
-       orbit_config.c \
-       orbit_axes.c \
-       orbit_chords.c \
-       orbit_slicer.c \
-       orbit_6dof.c \
-       orbit_leds.c
 
 # Trims
-MAGIC_ENABLE      = no
-GRAVE_ESC_ENABLE  = no
+MAGIC_ENABLE       = no
+GRAVE_ESC_ENABLE   = no
 SPACE_CADET_ENABLE = no
+
+# Uncommented as each phase lands. orbit_controller.c is compiled
+# automatically (it matches the keyboard directory name).
+#SRC += orbit_logic.c \
+#       orbit_config.c \
+#       orbit_axes.c \
+#       orbit_chords.c \
+#       orbit_slicer.c \
+#       orbit_6dof.c \
+#       orbit_leds.c
 ```
+
+LTO is set via `"build": {"lto": true}` in `keyboard.json`, not `LTO_ENABLE` in `rules.mk` —
+the data-driven form is preferred in current QMK.
 
 `orbit_via.c` is added by `keymaps/via/rules.mk` (only compiled for the VIA keymap).
 
@@ -188,7 +198,8 @@ SPACE_CADET_ENABLE = no
 #define DEBOUNCE 0
 
 // ---- Live-tuning EEPROM block ----
-#define EECONFIG_KB_DATA_SIZE 48
+// orbit_config_t is ~61 bytes; 64 leaves room to grow.
+#define EECONFIG_KB_DATA_SIZE 64
 
 // ---- Pointing device (slicer mouse) ----
 #define POINTING_DEVICE_TASK_THROTTLE_MS 1
@@ -278,26 +289,33 @@ rate.
 
 ## 8. Keymap design — how live remapping works
 
-The 3 buttons × {short, long} = 6 actions become a **2-layer keymap**:
+The 3 buttons × {short, long} = 6 actions need **three layers**, because a keymap cell holds
+only one keycode:
 
 ```c
-enum layers { _BASE = 0, _SLICER = 1 };
+enum orbit_layers {
+    _BASE        = 0,  // 6DOF mode
+    _SLICER      = 1,  // slicer mode, short-press actions
+    _SLICER_LONG = 2,  // slicer mode, long-press actions
+};
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-    // Layer 0: 6DOF mode — buttons are joystick buttons 1-3
-    [_BASE]   = LAYOUT(JS_BUTTON0, JS_BUTTON1, JS_BUTTON2),
+    // 6DOF mode: buttons go into the multi-axis button report (Report ID 3),
+    // assembled directly by orbit_6dof.c, so these cells are placeholders.
+    [_BASE]        = LAYOUT(KC_NO, KC_NO, KC_NO),
 
-    // Layer 1: slicer mode — short-press actions (VIA-editable)
-    [_SLICER] = LAYOUT(KC_TAB, KC_N, LCTL(KC_0)),
+    // Slicer short press: Tab / N / Ctrl+0        (VIA-editable)
+    [_SLICER]      = LAYOUT(KC_TAB, KC_N, LCTL(KC_0)),
+
+    // Slicer long press: Shift+Alt+G / L / A      (VIA-editable)
+    [_SLICER_LONG] = LAYOUT(LSA(KC_G), KC_L, KC_A),
 };
 ```
 
-Long-press actions need a third layer, since a keymap cell holds one keycode:
-
-```c
-enum layers { _BASE = 0, _SLICER = 1, _SLICER_LONG = 2 };
-// [_SLICER_LONG] = LAYOUT(LSA(KC_G), KC_L, KC_A),
-```
+Note `_BASE` uses `KC_NO`, not `JS_0`/`JS_1`/`JS_2`. The 6DOF buttons are not routed through
+the keymap at all — `orbit_6dof.c` builds the 32-bit button mask from the filtered chord
+output and sends it in Report 3, exactly as `sendButtons()` did. Routing them through QMK's
+joystick keycodes would bypass the chord suppression logic.
 
 `orbit_slicer.c` implements the 650 ms long-press timer and, on fire, looks up the keycode
 from the appropriate layer and calls `tap_code16()`:

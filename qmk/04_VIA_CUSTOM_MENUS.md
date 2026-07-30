@@ -1,6 +1,6 @@
 # 04 — Live Editing via VIA Custom Menus
 
-How the ~45 tuning parameters and the button keymap become live-editable from a GUI.
+How the 50 tuning parameters and the button keymap become live-editable from a GUI.
 
 ---
 
@@ -361,13 +361,17 @@ mechanism.
 
 ## 6. VIA definition JSON
 
-Lives at `qmk/via/hackman3d_orbit_controller.json` in this repo. Load it through VIA's
-**Design tab** during development (enable "Show Design tab" in VIA settings).
+Lives at `qmk/via/hackman3d_orbit_controller.json` in this repo — that file is the
+authoritative copy (validated: 5 tabs, 50 values). Load it through VIA's **Design tab**
+during development (enable "Show Design tab" in VIA settings).
+
+The listing below is abridged for reading; the shipped file additionally splits the Slicer tab
+into "Slicer mouse mode" and "Zoom / wheel" groups.
 
 ```json
 {
   "name": "HackMan3D Orbit Controller",
-  "vendorProductId": 626393137,
+  "vendorProductId": 628082225,
   "matrix": { "rows": 1, "cols": 3 },
   "layouts": {
     "keymap": [["0,0", "0,1", "0,2"]]
@@ -546,7 +550,14 @@ Lives at `qmk/via/hackman3d_orbit_controller.json` in this repo. Load it through
 }
 ```
 
-`vendorProductId` = `(0x256F << 16) | 0xC631` = **626393137**.
+`vendorProductId` = `(0x256F << 16) | 0xC631` = `0x256FC631` = **628082225**.
+
+Get this wrong and VIA simply will not recognise the device — there is no error message, the
+board just never appears. Verify with:
+
+```
+python -c "print((0x256F << 16) | 0xC631)"
+```
 
 The `"content"` triple is `[<id_name>, <channel_id>, <value_id>]`. The `id_name` string is
 cosmetic in the JSON but should match the C enum name for maintainability.
