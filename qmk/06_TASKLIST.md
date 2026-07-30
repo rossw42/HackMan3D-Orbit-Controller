@@ -78,8 +78,9 @@ against physical movement. Do not trust the pin table without this check.
 
 ## Phase 4 — Axis pipeline
 
-- [ ] Port `orbit_logic.h` → `orbit_logic.c/.h`
-- [ ] **Fix the curve LUT `256 → 0` truncation bug** (Inventory §1.4): store as `uint16_t`
+- [ ] Port `orbit_logic.h` → `orbit_logic.c/.h` — carry over the **already-applied** curve LUT
+      fix (`uint16_t` tables, see below); do not reintroduce `uint8_t`
+- [ ] Keep `INPUT_MAX_RZ` at `1024 × gain` — the asymmetry vs TZ is correct (finding #4)
 - [ ] Port the pipeline (steps 1–14) into `orbit_axes.c`
 - [ ] Rotation priority — **including the `smoothTX/TY/TZ` reset** (High risk #8)
 - [ ] Z push/pull consensus with negation (`transZ = -zPushPull`)
@@ -87,8 +88,10 @@ against physical movement. Do not trust the pin table without this check.
 - [ ] Triple output deadzone
 - [ ] Axis inversion, defaults `RX/RY/RZ = true`
 - [ ] Smoothing with the ±1 minimum step
-- [ ] **Run the Phase 0 harness against the ported code — diff must be empty** (except for
-      the intentional LUT bug fix, which must be characterised and explained)
+- [ ] **Run the Phase 0 harness against the ported code — diff must be empty.** Generate the
+      golden CSV from the *fixed* v1.1.x header so the LUT correction is already baked in and
+      the diff is a clean equality check.
+- [ ] Run `qmk/test/lut_fix_verify.c` against the ported `orbit_logic.h` too — it must PASS
 
 **Exit criteria:** golden CSV diff clean. This is the gate that proves no feature was lost.
 
@@ -201,21 +204,46 @@ against physical movement. Do not trust the pin table without this check.
 
 ## Status of the five findings
 
-**Nothing has been changed in the Arduino firmware.** No file under `FirmwareUpdates/` or
-`Firmware/` has been touched. These are findings recorded for the port; the two that alter
-device feel need your decision first.
+Of the five, **one was a real bug (now fixed), one was a false positive, three need no
+action.** The only file changed in the Arduino firmware is
+`FirmwareUpdates/v1.1.0/.../orbit_logic.h`.
 
-Note that findings 2 and 3, and the "two traps" at the top of `01_FIRMWARE_INVENTORY.md`, are
-**not defects to remove** — they are load-bearing behaviours or harmless documentation
-mismatches. Only #1 is an actual malfunction.
+Findings 2 and 3, and the "two traps" at the top of `01_FIRMWARE_INVENTORY.md`, are **not
+defects to remove** — they are load-bearing behaviours or harmless documentation mismatches.
 
-| # | Finding | Severity | Action | Needs your call? |
-|---|---|---|---|---|
-| 1 | **Curve LUT truncation** — 8 entries written as `256` store as `0` in a `uint8_t` array. Verified: output collapses to zero past ~88 % deflection. | 🔴 **Real bug** | Change type to `uint16_t`, keep entries 0–55 byte-for-byte. See below. | **Yes** |
-| 2 | Float `GAIN_*` / `MAX_SPEED_SCALE` / `RESPONSE_CURVE` are dead code | 🟡 Confusing, harmless | **Do not port them.** The QMK version has one source of truth: the config struct, exposed in VIA. The confusion disappears by construction. | No |
-| 3 | `SLICER_MODE_BUTTONS = {1,2,0}` but `COUNT = 2`, so the `0` is ignored | 🟡 Confusing, harmless | Port as an explicit 2-button chord with a comment. Behaviour identical. | No |
-| 4 | `INPUT_MAX_RZ` uses `1024` while `INPUT_MAX_TZ` uses `2048`, though both sum 4 channels | 🟡 Suspicious, possibly deliberate | **Preserve as-is.** Changing it halves RZ sensitivity. | **Yes** (leave alone unless you say otherwise) |
-| 5 | `ledFlashCalibrationError()` blocks 720 ms | 🟢 Not a bug | Keep — it runs in `post_init`, before reports start. | No |
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| 1 | **Curve LUT truncation** — 8 entries written as `256` stored as `0` in a `uint8_t` array; output collapsed to zero past ~88 % deflection. | 🔴 Real bug | ✅ **FIXED** in `orbit_logic.h` (approved). See below. |
+| 2 | Float `GAIN_*` / `MAX_SPEED_SCALE` / `RESPONSE_CURVE` are dead code | 🟡 Confusing, harmless | **No action.** Left in place in v1.1.x; simply not ported. The QMK version has one source of truth (the config struct in VIA), so the duplication cannot recur. |
+| 3 | `SLICER_MODE_BUTTONS = {1,2,0}` but `COUNT = 2`, so the `0` is ignored | 🟡 Confusing, harmless | **No action.** Port as an explicit 2-button chord with a comment. Behaviour identical. |
+| 4 | `INPUT_MAX_RZ` uses `1024` while `INPUT_MAX_TZ` uses `2048`, though both sum 4 channels | 🟢 **FALSE POSITIVE** | ❌ **Do not change** — see below. Tested before editing; the constants are all correct. |
+| 5 | `ledFlashCalibrationError()` blocks 720 ms | 🟢 Not a bug | **No action.** Runs in `post_init`, before reports start. |
+
+### Finding #4 — retracted: all six INPUT_MAX constants are correct
+
+This was approved for a fix, but testing it first showed the fix would have been a
+**regression**. `qmk/test/input_max_check.c` derives each axis's true post-gain range from the
+pipeline and compares against the declared constant:
+
+```
+axis  formula            pre-gain  gain   true max   declared   verdict
+TX    v5 - v1                1024   333       1332       1332   OK
+TY    v7 - v3                1024   333       1332       1332   OK
+TZ    -(v0+v2+v4+v6)         2048   589       4712       4712   OK
+RX    v4 - v0                1024   461       1844       1844   OK
+RY    v2 - v6                1024   461       1844       1844   OK
+RZ    (v1+v3+v5+v7)/2        1024   512       2048       2048   OK
+```
+
+The asymmetry is correct because **`rotZ` is divided by `Z_ROTATION_DIVISOR` (=2)** at
+`.ino:652`, which halves the four-channel sum back to a two-channel-equivalent range.
+`transZ` has no such divisor, so it correctly uses 2048.
+
+Had we "fixed" `INPUT_MAX_RZ` to `2048 * 512`, `applyResponseCurve()` would normalise against
+4096 while the real maximum is 2048 — so RZ could never exceed 50 % normalised input, and
+`pow(0.5, 1.6) ≈ 0.33` means **Z-rotation would have lost roughly two thirds of its output
+range.** The only change needed is the comment at `orbit_logic.h:282`, which says
+"analogRange = 1024 for X/Y, 2048 for Z" without mentioning the RZ divisor.
 
 ### The Y/Z swap is NOT a bug
 
@@ -223,30 +251,69 @@ mismatches. Only #1 is an actual malfunction.
 coordinate convention (Y-up on the wire vs Z-up internally). **Reproduce it exactly.** It is
 documented as a "trap" only because a careful porter would otherwise be tempted to "fix" it.
 
-### Bug #1 — the fix, and why the obvious fix is wrong
+### Bug #1 — APPLIED to `orbit_logic.h`
 
-Verified by host-compiling the verbatim table (`gcc -Woverflow` flags it too):
+**What changed** (4 edits, no table data touched):
+
+1. `CURVE_TABLE_1_9`, `CURVE_TABLE_1_6`, `CURVE_TABLE_1_3`: `uint8_t` → **`uint16_t`**
+2. `lookupCurve()` parameter: `const uint8_t*` → `const uint16_t*`
+3. `applyResponseCurve()` local `tbl`: `const uint8_t*` → `const uint16_t*`
+4. Header comment corrected: divisor is `i/56`, not `i/63`; explains the plateau and why the
+   type must be `uint16_t`
+
+All 192 table entries are **byte-for-byte unchanged**. Cost: +192 bytes flash (three 64-entry
+tables at 2 bytes instead of 1). RAM unaffected.
+
+**Why not regenerate from `pow(i/63, curve)`** — my original suggestion, which was wrong. The
+data fits **`i/56`** (mean abs error 2.81 vs 17.25). Entry 56 is the first `256`, so full
+output at **88.9 % deflection** with a flat top ~11 % is deliberate: you don't have to bottom
+out the stick. Regenerating with `i/63` would move saturation to 100 % and make the device
+feel *slower*.
+
+**Verified** by `qmk/test/lut_fix_verify.c`, which compiles against the live header:
 
 ```
-stored:  table[56..63] = 0,0,0,0,0,0,0,0     (all written as 256)
-effect:  norm8 224 -> output 0   (should be 208)
-         norm8 252 -> output 0   (should be 251)
-         norm8 255 -> output 192 (should be 256)
+[PASS] CURVE_TABLE_1_6[56..63] all store 256 (not 0)
+[PASS] sizeof entry is 2 bytes (uint16_t)
+[PASS] output is monotonically non-decreasing
+[PASS] full deflection returns 256
+[PASS] norm8 0..219 unchanged by the fix
+
+norm8   old (broken)   new (fixed)   change
+  216            247           247       +0
+  224              0           256     +256
+  248              0           256     +256
 ```
 
-**Do not regenerate the tables from `pow(i/63, curve)`.** The header comment says `i/63`, but
-the data actually fits **`i/56`** (mean abs error 2.8 vs 17.3 for `i/63`). Entry 56 is the
-first `256`, meaning full output is deliberately reached at **88.9 % deflection**, with the
-top ~11 % of travel a flat maximum — you don't have to bottom out the stick for full speed.
-Regenerating with `i/63` would move saturation to 100 % and make the device feel slower.
+The change is **surgical**: identical below norm8 220, restores full scale above it. Also
+confirmed: `g++ -Wall` now emits **zero** `-Woverflow` warnings (it previously emitted 8).
 
-**Correct fix:** change `uint8_t` → `uint16_t` on all three tables, keep entries 0–55
-unchanged, correct the comment to `i/56`. Costs 192 bytes of flash total.
+#### Expected behaviour change on hardware
 
-**Decision needed:** the fix makes high-deflection input behave as originally intended
-(full-scale output instead of dropping to zero). Users on v1.1.0 have been living with the
-dead zone at the extremes, so the corrected firmware will feel *stronger* at full deflection.
-Confirm that's wanted before Phase 4 closes.
+Only the **top ~14 % of deflection** on any axis is affected. Previously the axis went *dead*
+there (output fell to the deadzone); now it holds full scale. Users of v1.1.0 will notice the
+extremes feel *stronger* — that is the intended v1.1.0 design finally working.
+
+#### Rollback
+
+Per your request, this is recorded so it can be reverted if hardware testing disappoints:
+
+The fix is commit **`d3ee98f`** — `fix(firmware): curve LUT truncation`. It touches only
+`orbit_logic.h`, nothing else.
+
+```bash
+# Inspect it:
+git show d3ee98f
+
+# Revert just the firmware fix, keeping all docs and tests:
+git revert d3ee98f
+```
+
+The fix is one self-contained commit touching only `orbit_logic.h`, so reverting is clean.
+`qmk/test/lut_fix_verify.c` will then fail — which is the correct signal that the bug is back.
+
+**Test on hardware before shipping:** push each axis to its mechanical limit in Fusion 360 and
+confirm motion is smooth and maximal rather than cutting out. Compare against a v1.1.0 build.
 
 ---
 

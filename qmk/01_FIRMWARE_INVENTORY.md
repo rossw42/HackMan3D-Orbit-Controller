@@ -94,9 +94,15 @@ Legend: **L** = live-editable target for VIA, **C** = compile-time only.
 | `SPEED_SCALE_FP[3]` | `{128, 179, 256}` | 0.50 / 0.70 / 1.00 × 256 — max-output scale per mode. | **L** |
 | `SPEED_MODE_CURVE_IDX[3]` | `{0, 1, 2}` | Curve LUT index per mode. | **L** |
 
-### 1.4 Response curve LUTs (`orbit_logic.h:51-84`) — CONFIRMED BROKEN
+### 1.4 Response curve LUTs (`orbit_logic.h`) — BUG FOUND & FIXED (`d3ee98f`)
 
-Three 64-entry **`uint8_t`** tables whose last 8 entries are written as the literal `256`.
+> **Status:** the tables are now `uint16_t` and the bug below is fixed in v1.1.x.
+> Regression test: `qmk/test/lut_fix_verify.c`. The description is kept because the QMK port
+> must carry the fix forward, and because the `i/56` normalisation it uncovered is essential
+> context for anyone touching the curve.
+
+As originally shipped, three 64-entry **`uint8_t`** tables whose last 8 entries are written as
+the literal `256`.
 `256` does not fit in a `uint8_t`; it wraps to **`0`**. AVR-GCC and host GCC both emit
 `warning: unsigned conversion from 'int' to 'unsigned char' changes value from '256' to '0'
 [-Woverflow]` — the compiler has been reporting this all along.
@@ -143,7 +149,12 @@ at the extremes. The correct fix is:
 > trailing `256`s store correctly, and fix the comment to say `i/56`.
 
 Minimal, preserves the intended feel, and costs 64 bytes of flash per table (192 B total).
-See `06_TASKLIST.md` bug #1 and Phase 4.
+**This is what was applied** — plus the matching `const uint8_t*` → `const uint16_t*` change
+on `lookupCurve()`'s parameter and `applyResponseCurve()`'s local `tbl`, without which the
+code would not compile. Behaviour for normalised input 0–219 is bit-identical to before; only
+the top ~14 % of travel changes (from dead to full-scale).
+
+See `06_TASKLIST.md` → "Bug #1 — APPLIED" for the verification output and rollback command.
 
 ### 1.5 Input-max normalisation (`orbit_logic.h:284-289`)
 
@@ -156,10 +167,27 @@ See `06_TASKLIST.md` bug #1 and Phase 4.
 | `INPUT_MAX_RY_FP256` | `1024 * 461` | 472,064 |
 | `INPUT_MAX_RZ_FP256` | `1024 * 512` | 524,288 |
 
-`= analogRange × gainFP`, where analogRange is 1024 for X/Y and 2048 for Z (Z sums four
-channels). `applyResponseCurve` uses `inputMax = inputMaxFP256 >> 8`. These are **derived**
-from the gains — when a gain becomes live-editable, its `INPUT_MAX` must be recomputed, not
-stored independently.
+`= analogRange × gainFP`, where analogRange is the widest value the axis can reach *before*
+gain (a single channel deviates at most ±512 from centre):
+
+| Axis | Formula | Channels | analogRange |
+|---|---|---|---|
+| TX, TY, RX, RY | e.g. `v5 - v1` | 2, differenced | 1024 |
+| TZ | `-(v0+v2+v4+v6)` | 4, summed | **2048** |
+| RZ | `(v1+v3+v5+v7) / 2` | 4, summed **then halved** | **1024** |
+
+**The TZ=2048 / RZ=1024 asymmetry is correct, not a bug.** `rotZ` is divided by
+`Z_ROTATION_DIVISOR` (=2), which brings the four-channel sum back to a two-channel-equivalent
+range; `transZ` has no such divisor. Verified by `qmk/test/input_max_check.c` — all six
+constants match their true post-gain range exactly.
+
+Raising `INPUT_MAX_RZ` to `2048 × 512` would make `applyResponseCurve()` normalise against
+4096 while the real maximum is 2048, capping RZ at 50 % normalised input; since
+`pow(0.5, 1.6) ≈ 0.33`, Z-rotation would lose roughly **two thirds** of its output range.
+
+`applyResponseCurve` uses `inputMax = inputMaxFP256 >> 8`. These are **derived** from the
+gains — when a gain becomes live-editable, its `INPUT_MAX` must be recomputed, not stored
+independently, and the RZ divisor must be carried through.
 
 ### 1.6 Rotation priority / Z detection
 
@@ -580,7 +608,7 @@ Both modes send **every loop**, unconditionally — no change detection.
 | 8 | Rotation priority **+ smoothing reset** | direct port | **High** — easy to forget the reset |
 | 9 | Fixed-point gains | direct port | Low |
 | 10 | Dominant axis filter | direct port | Low |
-| 11 | Response curve LUT + `INPUT_MAX` derivation | direct port, **fix the 256→0 bug** | **High** |
+| 11 | Response curve LUT + `INPUT_MAX` derivation | direct port; carry the `uint16_t` fix (`d3ee98f`) forward, keep RZ analogRange at 1024 | **High** |
 | 12 | Triple output deadzone | direct port | Med |
 | 13 | Axis inversion ×6 | direct port | Low |
 | 14 | Smoothing with ±1 minimum step | direct port | Low |

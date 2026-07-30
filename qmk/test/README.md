@@ -6,10 +6,21 @@ verifiable by diffing outputs instead of guessing.
 
 Requires only `gcc` and `libm`. On Windows, run from a QMK MSYS shell.
 
-## `lut_bug_check.c`
+| Test | Purpose | Expected |
+|---|---|---|
+| `lut_bug_check.c` | Proves the curve-LUT bug existed (frozen copy of the old table) | exit 1 |
+| `lut_fix_verify.c` | Regression test for the fix, compiled against the **live** header | exit 0 |
+| `input_max_check.c` | Validates all six `INPUT_MAX_*` constants against the real pipeline | exit 0 |
+
+> `lut_fix_verify.c` and `input_max_check.c` need **`g++`**, not `gcc` — `orbit_logic.h` uses
+> C++ reference parameters.
+
+## `lut_bug_check.c` — the bug (historical record)
 
 Proves and quantifies the one genuine malfunction found in v1.1.0: the response-curve lookup
-tables are `uint8_t` but their last eight entries are written as `256`, which wraps to `0`.
+tables were `uint8_t` but their last eight entries are written as `256`, which wraps to `0`.
+This test embeds a frozen copy of the old table, so it keeps documenting the bug even after
+the fix lands.
 
 ```bash
 gcc -O2 -Wall lut_bug_check.c -o lut_bug_check -lm && ./lut_bug_check
@@ -29,7 +40,34 @@ Findings:
   choice, so **regenerating the tables with `i/63` would change how the device feels.**
 
 The correct fix is therefore narrow: change the three arrays to `uint16_t`, keep entries 0–55
-byte-for-byte, correct the comment. See `../06_TASKLIST.md`.
+byte-for-byte, correct the comment. **Applied** in commit `d3ee98f`. See `../06_TASKLIST.md`.
+
+## `lut_fix_verify.c` — the fix (regression test)
+
+Compiles against the **live** `orbit_logic.h`, so it fails if the fix is reverted or regressed.
+
+```bash
+g++ -O2 -Wall lut_fix_verify.c -o lut_fix_verify && ./lut_fix_verify
+```
+
+Checks: tables store 256, entry size is 2 bytes, output is monotonic, full deflection returns
+256, and **normalised input 0–219 is bit-identical to the pre-fix behaviour** — that last one
+is what proves the change is confined to the top of travel and doesn't alter normal-range feel.
+
+## `input_max_check.c` — the false positive
+
+Derives each axis's true post-gain range from the pipeline and compares it to the declared
+`INPUT_MAX_*` constant. All six match.
+
+```bash
+g++ -O2 -Wall input_max_check.c -o input_max_check && ./input_max_check
+```
+
+This test exists because `INPUT_MAX_RZ` uses `1024` while `INPUT_MAX_TZ` uses `2048` even
+though both Z axes sum four channels, which looks like a bug and was initially reported as
+one. It isn't: `rotZ` is divided by `Z_ROTATION_DIVISOR` (=2), halving the four-channel sum
+back to a two-channel-equivalent range. Raising RZ to 2048 would have cost it roughly two
+thirds of its output. **Testing before editing prevented a regression here.**
 
 ## Planned: `reference_pipeline.c` (Phase 0)
 
