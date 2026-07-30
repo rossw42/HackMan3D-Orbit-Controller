@@ -44,6 +44,37 @@ Three routes back:
 **The bootloader is never overwritten**, so the board cannot be bricked by this. Worst case you
 retry the reset timing.
 
+### EEPROM: not erased, but the two firmwares interpret it differently
+
+The flash command QMK uses for Caterina is `-U flash:w:...` only — **no `-U eeprom:w:`** — so
+flashing does not erase EEPROM. (Verified in `platforms/avr/flash.mk`; the eeprom-writing
+variants there are only used for split keyboards and DFU.)
+
+That is *mostly* good news, but the two firmwares lay EEPROM out incompatibly:
+
+| | Arduino v1.1.x | QMK |
+|---|---|---|
+| Byte 0 | magic `0xA5` | QMK's own magic |
+| Byte 1 | speed mode | QMK config |
+| Byte 2 | slicer mode | QMK config |
+
+So on each transition the *other* firmware sees a wrong magic value and falls back to
+defaults. In practice:
+
+- **Arduino → QMK:** QMK detects a bad magic and initialises its own config. Fine.
+- **QMK → Arduino:** the Arduino firmware finds `EEPROM_MAGIC_VALUE` missing and resets to
+  `DEFAULT_SPEED_MODE` / `DEFAULT_SLICER_MOUSE_MODE`. **Your saved speed and slicer-mode
+  preference are lost** — you just re-select them with the button chords.
+
+Nothing is damaged either way; only those two remembered settings reset, and you re-select them
+with the button chords.
+
+Note that QMK's usual EEPROM-reset escape hatches are unavailable here: Bootmagic is
+deliberately disabled (our chords use all three buttons, so holding one at boot must not wipe
+config), and no `EE_CLR` keycode is mapped. If a corrupt EEPROM ever needs clearing, add
+`EE_CLR` to a keymap temporarily, or flash with
+`avrdude ... -U eeprom:w:...` explicitly.
+
 ---
 
 ## Flashing
