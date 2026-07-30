@@ -20,7 +20,7 @@
 
 $before = (Get-CimInstance Win32_SerialPort).DeviceID
 
-$port = New-Object System.IO.Ports.SerialPort COM5,1200,None,8,one
+$port = New-Object System.IO.Ports.SerialPort COM10,1200,None,8,one
 $port.Open()
 Start-Sleep -Milliseconds 100
 $port.Close()

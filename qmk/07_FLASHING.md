@@ -19,9 +19,12 @@ buttons. It does **not yet** do any of the following:
 USB enumeration, VID/PID, and that you can get back to the Arduino firmware. If you want a
 working controller today, stay on the Arduino build.
 
-Also note: `JOYSTICK_MULTIAXIS_ENABLE` is set in `config.h` but the matching `tmk_core` patch
-does **not** exist yet, so the define currently does nothing and the device presents as a
-generic 6-axis joystick — not a 3Dconnexion device.
+**Phase 1 update:** `JOYSTICK_MULTIAXIS_ENABLE` is now active and the `tmk_core` patch is
+applied (`hackman3d/multiaxis` branch in `qmk_firmware`). The device now enumerates with the
+Multi-axis Controller descriptor. However, **the 1200-baud-touch auto-reset (VIRTSER) is
+disabled** — the dedicated joystick endpoint required by the multi-axis descriptor fills the
+last free USB endpoint, leaving no room for CDC's 3 endpoints. Use button 3 (`QK_BOOT`) or
+double-tap RST→GND to enter the bootloader. See `rules.mk` for the exact endpoint budget.
 
 ---
 
@@ -38,12 +41,12 @@ Four routes back:
    1200 baud and closes it, causing the firmware to call `bootloader_jump()` and open the
    Caterina window. This is the same mechanism the Arduino core uses, so it works exactly like
    the original Arduino firmware — no manual reset required.
-2. **`QK_BOOT` on button 3.** While the port is a skeleton, button 3 is mapped to `QK_BOOT`.
-   (Reverts to `KC_NO` once orbit_6dof.c lands.)
+2. **`QK_BOOT` on button 3** — the primary recovery route in Phase 1+ builds. Press button 3;
+   the firmware jumps to the bootloader. Reverts to `KC_NO` once orbit_6dof.c lands.
 3. **Physical reset.** Short `RST` to `GND` **twice, quickly** — double-tap keeps Caterina open
    ~8 s; single-tap gives only ~750 ms.
-4. **Arduino IDE (returning to the Arduino sketch).** Works the same as before — no manual
-   reset needed, because route 1 handles the bootloader entry.
+4. **Arduino IDE (returning to the Arduino sketch).** Use button 3 (`QK_BOOT`) to enter the
+   bootloader first, then flash the Arduino sketch normally.
 
 **The bootloader is never overwritten**, so the board cannot be bricked by this. Worst case you
 retry the reset timing.
@@ -154,12 +157,13 @@ tail -1 hackman3d_orbit_controller_viam.hex     # must be  :00000001FF
 avr-size --target=ihex hackman3d_orbit_controller_viam.hex
 ```
 
-Expect **11,500 bytes** for `default` and **12,832** for `viam` (both with VIRTSER enabled).
-Note the on-disk `.hex` file is ~30–34 KB — that is Intel HEX ASCII encoding, roughly 3× the
-real flash figure.
+Expect **12,018 bytes** for the Phase 1 `viam` build (multiaxis descriptor, no VIRTSER).
+Note the on-disk `.hex` file is ~34 KB — that is Intel HEX ASCII encoding, roughly 3× the real
+flash figure.
 
-For reference, before VIRTSER was added: default 10,574 / viam 11,920. The CDC serial interface
-costs 880–926 bytes and 3 USB endpoints, but we have room.
+Size history:
+- Phase 2 (VIRTSER, no multiaxis): default 11,500 / viam 12,832 B
+- Phase 1 (multiaxis, no VIRTSER): default ~11,500 / **viam 12,018 B**
 
 ---
 

@@ -26,18 +26,22 @@ harness first makes every later phase verifiable instead of hopeful.
 
 ---
 
-## Phase 1 — QMK core fork (multi-axis HID)
+## Phase 1 — QMK core fork (multi-axis HID) ✅ COMPLETE
 
-- [ ] Create branch `hackman3d/multiaxis` in `d:\GitHub2\qmk_firmware`
-- [ ] Add `JOYSTICK_MULTIAXIS_ENABLE` gate
-- [ ] `tmk_core/protocol/usb_descriptor.c` — multi-axis report descriptor (doc `03` §3)
-- [ ] `tmk_core/protocol/report.h` — the 3 packed report structs
-- [ ] `tmk_core/protocol/lufa/lufa.c` — `send_multiaxis()` + `send_multiaxis_buttons()`
-- [ ] Verify endpoint count still passes the compile-time `#error` check
-- [ ] **Byte-diff the generated descriptor against the Arduino `hidReportDescriptor[]`**
-- [ ] Export the patch to `qmk/patches/0001-multiaxis-hid.patch`
+- [x] Create branch `hackman3d/multiaxis` in `d:\GitHub2\qmk_firmware`
+- [x] Add `JOYSTICK_MULTIAXIS_ENABLE` gate
+- [x] `tmk_core/protocol/usb_descriptor.c` — multi-axis report descriptor
+- [x] `tmk_core/protocol/report.h` — 3 packed report structs
+- [x] `tmk_core/protocol/lufa/lufa.c` — `send_multiaxis()` + `send_multiaxis_buttons()`
+- [x] Endpoint count passes (joystick uses SHARED_IN_EPNUM; VIRTSER incompatible — disabled)
+- [x] **Byte-diff PASSED** — ELF bytes `05 01 09 08 a1 01 ...` match `hidReportDescriptor[]`
+- [x] Patch exported to `qmk/patches/0001-multiaxis-hid.patch`
 
-**Exit criteria:** descriptor hex is byte-identical to the Arduino firmware's.
+**Exit criteria MET:** descriptor hex is byte-identical to the Arduino firmware's (12,018 B).
+
+**Note:** VIRTSER (1200-baud-touch auto-reset) is disabled in this build. The multi-axis
+descriptor requires a dedicated joystick endpoint, which fills the last free EP on the
+ATmega32U4 (6 EPs total). Use button 3 (`QK_BOOT`) to enter the bootloader. See `rules.mk`.
 
 ---
 
@@ -333,7 +337,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | Phase | Status |
 |---|---|
 | 0 — Golden reference harness | ✅ **COMPLETE** — `reference_pipeline.c` + `golden.csv` committed |
-| 1 — QMK core fork | ☐ Not started |
+| 1 — QMK core fork | ✅ **COMPLETE** — patch committed, descriptor bytes verified, build 12,018 B |
 | 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
 | 3 — Analog + calibration | ☐ Not started |
 | 4 — Axis pipeline | ☐ Not started |
