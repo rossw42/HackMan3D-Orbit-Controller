@@ -34,6 +34,8 @@ approach fits on our MCU.
 | [`04_VIA_CUSTOM_MENUS.md`](04_VIA_CUSTOM_MENUS.md) | Live-editing design: channel/value-ID map, the VIA JSON, the C handler, EEPROM layout. |
 | [`05_SIZE_BUDGET.md`](05_SIZE_BUDGET.md) | Measured flash/RAM/EEPROM budget on the 28,672-byte 32U4 target, and the trim list. |
 | [`06_TASKLIST.md`](06_TASKLIST.md) | Phased, checkbox task list — the working plan. |
+| [`07_FLASHING.md`](07_FLASHING.md) | Flashing, Caterina reset timing, recovery, and getting back to Arduino. **Read before flashing.** |
+| [`test/README.md`](test/README.md) | Host + AVR verification harness. |
 | [`links.md`](links.md) | Reference links. |
 
 ## Current status
@@ -66,6 +68,10 @@ Or via the CLI (`-j 0` = unlimited parallel jobs, `SKIP_GIT=true` skips the subm
 ```bash
 SKIP_GIT=true qmk compile -j 0 -kb hackman3d/orbit_controller -km viam
 ```
+
+To flash, add `:flash` (or use `qmk flash`) — but **read [`07_FLASHING.md`](07_FLASHING.md)
+first. At Phase 2 this firmware does not read the joysticks, does not send 6DOF motion, and is
+not recognised by 3DxWare.** Stay on the Arduino build if you need a working controller.
 
 Two things that will bite you:
 
