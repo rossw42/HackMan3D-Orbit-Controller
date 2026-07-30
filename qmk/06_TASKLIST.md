@@ -334,7 +334,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 |---|---|
 | 0 — Golden reference harness | ☐ Not started |
 | 1 — QMK core fork | ☐ Not started |
-| 2 — Minimal keyboard | ◧ Scaffolded & building; hardware test pending |
+| 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
 | 3 — Analog + calibration | ☐ Not started |
 | 4 — Axis pipeline | ☐ Not started |
 | 5 — 6DOF output | ☐ Not started |
