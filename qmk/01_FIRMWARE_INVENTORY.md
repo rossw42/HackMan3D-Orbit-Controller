@@ -15,9 +15,13 @@ Files (5):
 
 ---
 
-## ⚠️ Two traps that will silently break the port
+## ⚠️ Two things that look wrong but must be handled carefully
 
-### Trap 1 — the float gain constants are dead code
+Neither of these is a bug to remove. They are recorded here because a careful porter would
+otherwise be tempted to "clean them up" and would break the device. For the one genuine
+malfunction found in v1.1.0, see §1.4 and `06_TASKLIST.md`.
+
+### Trap 1 — the float gain constants are dead code (delete, don't port)
 
 `.ino` lines 58–66 declare `GAIN_TX…GAIN_RZ`, `MAX_SPEED_SCALE`, `RESPONSE_CURVE` as
 `const float`. **These are documentation only.** The runtime math uses the fixed-point
@@ -34,7 +38,7 @@ rPow > (int32_t)(tPow * ROTATION_PRIORITY * 256) >> 8
 **Port implication:** the QMK port must expose the **fixed-point** values as the editable
 parameters, and must keep float out of the hot loop entirely.
 
-### Trap 2 — `sendCommand()` arguments are Y/Z swapped
+### Trap 2 — `sendCommand()` Y/Z transposition is intentional (keep it)
 
 `.ino:718`:
 
@@ -90,24 +94,56 @@ Legend: **L** = live-editable target for VIA, **C** = compile-time only.
 | `SPEED_SCALE_FP[3]` | `{128, 179, 256}` | 0.50 / 0.70 / 1.00 × 256 — max-output scale per mode. | **L** |
 | `SPEED_MODE_CURVE_IDX[3]` | `{0, 1, 2}` | Curve LUT index per mode. | **L** |
 
-### 1.4 Response curve LUTs (`orbit_logic.h:51-84`)
+### 1.4 Response curve LUTs (`orbit_logic.h:51-84`) — CONFIRMED BROKEN
 
-Three 64-entry `uint8_t` tables, each `round(pow(i/63, curve) * 256)` — note entries
-saturate at **256**, which does not fit `uint8_t`… and indeed `256` wraps to `0` in a
-`uint8_t` array. **This is a latent bug in v1.1.0**: the tail entries written as `256`
-actually store `0`.
+Three 64-entry **`uint8_t`** tables whose last 8 entries are written as the literal `256`.
+`256` does not fit in a `uint8_t`; it wraps to **`0`**. AVR-GCC and host GCC both emit
+`warning: unsigned conversion from 'int' to 'unsigned char' changes value from '256' to '0'
+[-Woverflow]` — the compiler has been reporting this all along.
 
-- `CURVE_TABLE_1_9` (idx 0, slow/precision) — tail: `246,254,256,256,256,256,256,256`
-- `CURVE_TABLE_1_6` (idx 1, default) — tail: `247,254,256,…`
-- `CURVE_TABLE_1_3` (idx 2, fast) — tail: `253,256,…`
+**Verified empirically** (host build of the verbatim table + `lookupCurve()`):
 
-`lookupCurve()` reads `table[idx]` and `table[idx+1]`, and hardcodes `hi = 256` only when
-`idx == 63`. For `idx` in 56..62 the stored `0`s produce a **collapse of the curve to near
-zero at high deflection** on the affected tables.
+```
+table[56..63] = 0, 0, 0, 0, 0, 0, 0, 0     (all eight written as 256)
 
-**Port action:** store the tables as `uint16_t` (or clamp at 255 and treat 255 as full
-scale). Documented in `06_TASKLIST.md` as a bug to fix during the port, not to faithfully
-reproduce. Verify against hardware before/after.
+norm8  actual  ideal   delta
+  220     254    202     +52
+  224       0    208    -208   <-- output collapses to zero
+  240       0    232    -232
+  252       0    251    -251
+  255     192    256     -64
+```
+
+**Real-world symptom:** past ~88 % deflection on any axis, output **drops to the output
+deadzone instead of maxing out**. Push a joystick all the way and the axis goes *dead*. It
+recovers slightly at the very end (192/256) because `lookupCurve()` special-cases
+`hi = 256` when `idx == 63`. Worst deviation is 251/256 — effectively full-scale error.
+
+#### The tables are NOT `pow(i/63, curve)` as their comment claims
+
+The header comment says `round(pow(i/63.0, curve) * 256)`. The actual data matches
+**`i/56`** with saturation (mean abs error 2.8 at `/56` vs **17.3** at `/63`):
+
+| divisor | mean abs error vs the written literals |
+|---|---|
+| `i/55` | 2.89 |
+| **`i/56`** | **2.81** ← best fit |
+| `i/60` | 10.39 |
+| `i/63` | 17.25 |
+
+Entry 56 is the first `256`, i.e. **full output is intentionally reached at 88.9 % of
+deflection**, with the top ~11 % of travel a deliberate flat maximum. That is a real design
+choice — it means you do not have to bottom out the joystick to get full speed.
+
+**This matters for the fix.** Regenerating the tables with `i/63` (which is what the comment
+implies) would move the saturation point to 100 % and make the device feel noticeably slower
+at the extremes. The correct fix is:
+
+> Keep entries 0–55 **byte-for-byte**, change the array type to `uint16_t` so the eight
+> trailing `256`s store correctly, and fix the comment to say `i/56`.
+
+Minimal, preserves the intended feel, and costs 64 bytes of flash per table (192 B total).
+See `06_TASKLIST.md` bug #1 and Phase 4.
 
 ### 1.5 Input-max normalisation (`orbit_logic.h:284-289`)
 

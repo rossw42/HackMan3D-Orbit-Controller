@@ -199,18 +199,54 @@ against physical movement. Do not trust the pin table without this check.
 
 ---
 
-## Known bugs to fix during the port
+## Status of the five findings
 
-| # | Bug | Where | Action |
-|---|---|---|---|
-| 1 | Curve LUT entries written as `256` truncate to `0` in a `uint8_t` array, collapsing the response curve at high deflection | `orbit_logic.h:51-84` | Store as `uint16_t`. Characterise the behavior change and confirm with the user that the *fixed* curve is desired. |
-| 2 | Float gain constants are dead code, misleading anyone tuning the firmware | `.ino:58-66` | Removed by design — VIA exposes the real FP values. |
-| 3 | `SLICER_MODE_BUTTONS` declares 3 entries but `SLICER_MODE_BUTTON_COUNT = 2`, so the third is silently ignored | `.ino:165-166` | Make the chord explicit; document it. |
-| 4 | `INPUT_MAX_RZ` uses `1024` while `INPUT_MAX_TZ` uses `2048`, though both sum 4 channels | `orbit_logic.h:284-289` | **Preserve as-is** — changing it changes feel. Flag for the user as a possible intentional choice. |
-| 5 | `ledFlashCalibrationError()` blocks for 720 ms | `.ino:270-275` | Acceptable in `post_init`; keep. |
+**Nothing has been changed in the Arduino firmware.** No file under `FirmwareUpdates/` or
+`Firmware/` has been touched. These are findings recorded for the port; the two that alter
+device feel need your decision first.
 
-Bug 1 and Bug 4 need a **decision from the user** before Phase 4 completes, since both change
-the device's feel.
+Note that findings 2 and 3, and the "two traps" at the top of `01_FIRMWARE_INVENTORY.md`, are
+**not defects to remove** — they are load-bearing behaviours or harmless documentation
+mismatches. Only #1 is an actual malfunction.
+
+| # | Finding | Severity | Action | Needs your call? |
+|---|---|---|---|---|
+| 1 | **Curve LUT truncation** — 8 entries written as `256` store as `0` in a `uint8_t` array. Verified: output collapses to zero past ~88 % deflection. | 🔴 **Real bug** | Change type to `uint16_t`, keep entries 0–55 byte-for-byte. See below. | **Yes** |
+| 2 | Float `GAIN_*` / `MAX_SPEED_SCALE` / `RESPONSE_CURVE` are dead code | 🟡 Confusing, harmless | **Do not port them.** The QMK version has one source of truth: the config struct, exposed in VIA. The confusion disappears by construction. | No |
+| 3 | `SLICER_MODE_BUTTONS = {1,2,0}` but `COUNT = 2`, so the `0` is ignored | 🟡 Confusing, harmless | Port as an explicit 2-button chord with a comment. Behaviour identical. | No |
+| 4 | `INPUT_MAX_RZ` uses `1024` while `INPUT_MAX_TZ` uses `2048`, though both sum 4 channels | 🟡 Suspicious, possibly deliberate | **Preserve as-is.** Changing it halves RZ sensitivity. | **Yes** (leave alone unless you say otherwise) |
+| 5 | `ledFlashCalibrationError()` blocks 720 ms | 🟢 Not a bug | Keep — it runs in `post_init`, before reports start. | No |
+
+### The Y/Z swap is NOT a bug
+
+`sendCommand(oRX, oRZ, oRY, oTX, oTZ, oTY)` looks like a mistake but is the 3Dconnexion
+coordinate convention (Y-up on the wire vs Z-up internally). **Reproduce it exactly.** It is
+documented as a "trap" only because a careful porter would otherwise be tempted to "fix" it.
+
+### Bug #1 — the fix, and why the obvious fix is wrong
+
+Verified by host-compiling the verbatim table (`gcc -Woverflow` flags it too):
+
+```
+stored:  table[56..63] = 0,0,0,0,0,0,0,0     (all written as 256)
+effect:  norm8 224 -> output 0   (should be 208)
+         norm8 252 -> output 0   (should be 251)
+         norm8 255 -> output 192 (should be 256)
+```
+
+**Do not regenerate the tables from `pow(i/63, curve)`.** The header comment says `i/63`, but
+the data actually fits **`i/56`** (mean abs error 2.8 vs 17.3 for `i/63`). Entry 56 is the
+first `256`, meaning full output is deliberately reached at **88.9 % deflection**, with the
+top ~11 % of travel a flat maximum — you don't have to bottom out the stick for full speed.
+Regenerating with `i/63` would move saturation to 100 % and make the device feel slower.
+
+**Correct fix:** change `uint8_t` → `uint16_t` on all three tables, keep entries 0–55
+unchanged, correct the comment to `i/56`. Costs 192 bytes of flash total.
+
+**Decision needed:** the fix makes high-deflection input behave as originally intended
+(full-scale output instead of dropping to zero). Users on v1.1.0 have been living with the
+dead zone at the extremes, so the corrected firmware will feel *stronger* at full deflection.
+Confirm that's wanted before Phase 4 closes.
 
 ---
 
