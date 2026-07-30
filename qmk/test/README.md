@@ -97,13 +97,73 @@ without that, `-Os` elides them entirely and the measurement reads zero.
 
 Skips cleanly (exit 0) if no AVR toolchain is present, so it's safe in CI.
 
-## Planned: `reference_pipeline.c` (Phase 0)
+## Running all tests
 
-The golden-reference harness. Compiles the *original* `orbit_logic.h` plus a transcription of
-the `.ino` axis pipeline, sweeps the 8 input channels (including the combinations that trigger
-Z push/pull consensus, Z twist consensus and rotation priority), and dumps
-`inputs → oTX..oRZ` to CSV for all three speed modes.
+A \`Makefile\` is provided. From a QMK MSYS shell:
 
-The QMK port must then reproduce that CSV exactly — apart from the LUT fix above, whose effect
-must be characterised rather than silently absorbed. That diff is the gate that proves no
-behaviour was lost in the port.
+\`\`\`bash
+cd qmk/test
+make          # runs all four tests
+make clean    # removes compiled binaries
+\`\`\`
+
+Each test prints \`[PASS]\` or \`[FAIL]\` and the Makefile aborts on the first
+failure. All four should be green before starting the QMK port.
+
+## Phase 0: reference pipeline
+
+The gate between the pre-port audit and the actual QMK port. It establishes a
+golden CSV that the port must reproduce.
+
+### What \`reference_pipeline.c\` will do
+
+A C program (not yet written) that:
+
+1. **Includes the original \`orbit_logic.h\`** unchanged, so the math functions are
+   exactly as shipped in v1.1.0 (post LUT-fix).
+2. **Transcribes the \`.ino\` axis pipeline** (the eight raw-sensor reads, the
+   dead-zone logic, axis combinations, gain, response curve and output scaling).
+3. **Sweeps all 8 input channels** across their full range, including the
+   combinations that trigger Z push/pull consensus, Z twist consensus and
+   rotation-priority gating.
+4. **Dumps \`inputs -> oTX oTY oTZ oRX oRY oRZ\` to CSV** for all three speed modes
+   (slow/precision, default, fast).
+
+### How to generate \`golden.csv\`
+
+\`\`\`bash
+make golden    # prints the command when reference_pipeline.c exists
+# or manually:
+gcc -O2 -Wall reference_pipeline.c -o reference_pipeline -lm
+./reference_pipeline > golden.csv
+\`\`\`
+
+The CSV will have one row per input combination, columns:
+\`speed_mode,v0,v1,v2,v3,v4,v5,v6,v7,oTX,oTY,oTZ,oRX,oRY,oRZ\`.
+
+### How the QMK port uses it
+
+1. Port \`orbit_logic.h\` to QMK (the core math is already dependency-free).
+2. Write a host-side test stub that drives the same sweep.
+3. Run the stub, capture its CSV.
+4. **Diff against \`golden.csv\`** — must be empty, *except* for the known
+   LUT-fix band:
+
+\`\`\`bash
+make check_golden   # placeholder today; real diff once port CSV exists
+diff golden.csv port_output.csv   # expected empty except norm8 220..255 rows
+\`\`\`
+
+The LUT-fix delta (norm8 220..255 range, affecting the top ~14% of deflection)
+is **expected and documented** by \`lut_fix_verify.c\`. Any diff beyond that band
+means a regression was introduced during porting and must be fixed before
+the port is considered correct.
+
+### Status
+
+| Item | Status |
+|---|---|
+| \`reference_pipeline.c\` | **Not yet written** |
+| \`golden.csv\` | **Not yet generated** |
+| \`make check_golden\` | Placeholder — skips if CSV absent |
+| All four Phase 0 pre-checks | **Passing** (see table at top) |
