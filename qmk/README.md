@@ -44,12 +44,13 @@ Scaffold is in place and **both builds compile**:
 
 | Build | Flash | Budget |
 |---|---|---|
-| `hackman3d/orbit_controller:default` | 10,574 B (36 %) | 28,672 B |
-| `hackman3d/orbit_controller:viam` | 11,920 B (41 %) | 28,672 B |
+| `hackman3d/orbit_controller:default` | 11,500 B (40 %) | 28,672 B |
+| `hackman3d/orbit_controller:viam` | 12,832 B (44 %) | 28,672 B |
 
-VIA costs only **1,346 bytes** here — the original feasibility study's fear that VIA "likely
-does not fit" was wrong by ~4×. With ~16.7 KB free in the VIA build and the application
-estimated at ~6.5 KB, there is ample headroom. Details in `05_SIZE_BUDGET.md`.
+VIRTSER (CDC serial for Arduino-style 1200-baud-touch auto-reset) adds ~926 bytes.
+Without it: 10,574 / 11,920. The original feasibility study's fear that VIA "likely does not
+fit" is still wrong by ~4×. With ~15.8 KB free in the VIA build and the application estimated
+at ~6.5 KB, there is ample headroom. Details in `05_SIZE_BUDGET.md`.
 
 `qmk lint` passes for both keymaps. Next up is Phase 0 (golden-reference test harness) and
 Phase 1 (the QMK core patch). See `06_TASKLIST.md`.

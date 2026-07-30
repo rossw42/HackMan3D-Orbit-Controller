@@ -30,16 +30,20 @@ generic 6-axis joystick — not a 3Dconnexion device.
 The Pro Micro's Caterina bootloader is only listening for **~750 ms after a reset**, so
 recovery depends on hitting that window.
 
-Three routes back:
+Four routes back:
 
-1. **`QK_BOOT` on button 3.** While the port is a skeleton, physical button 3 is mapped to
-   `QK_BOOT`, so pressing it jumps straight to the bootloader. This is the easy route and the
-   reason it is temporarily mapped that way. (It becomes `KC_NO` once the 6DOF button report
-   is wired up, since those buttons bypass the keymap.)
-2. **Physical reset.** Short the `RST` pin to `GND` **twice, quickly** — a double-tap holds the
-   bootloader open ~8 s instead of 750 ms. A single tap gives you only the short window.
-3. **Arduino IDE.** It performs the 1200-baud-touch reset automatically, so re-flashing the
-   original sketch works the same as it always did.
+1. **Arduino IDE / `arduino-cli` / `qmk flash` (the normal way).** The 1200-baud-touch auto-reset
+   is **now implemented** in `orbit_autoreset.c` and is enabled unconditionally. The Arduino IDE
+   (and `qmk flash`, which uses the same avrdude auto-detect path) opens the CDC serial port at
+   1200 baud and closes it, causing the firmware to call `bootloader_jump()` and open the
+   Caterina window. This is the same mechanism the Arduino core uses, so it works exactly like
+   the original Arduino firmware — no manual reset required.
+2. **`QK_BOOT` on button 3.** While the port is a skeleton, button 3 is mapped to `QK_BOOT`.
+   (Reverts to `KC_NO` once orbit_6dof.c lands.)
+3. **Physical reset.** Short `RST` to `GND` **twice, quickly** — double-tap keeps Caterina open
+   ~8 s; single-tap gives only ~750 ms.
+4. **Arduino IDE (returning to the Arduino sketch).** Works the same as before — no manual
+   reset needed, because route 1 handles the bootloader entry.
 
 **The bootloader is never overwritten**, so the board cannot be bricked by this. Worst case you
 retry the reset timing.
@@ -79,7 +83,8 @@ config), and no `EE_CLR` keycode is mapped. If a corrupt EEPROM ever needs clear
 
 ## Flashing
 
-From the root of the QMK tree containing `keyboards/hackman3d/`:
+Start the flash command first, **then** trigger the reset (if needed at all — with
+`qmk flash` the auto-reset handles it automatically):
 
 ```bash
 # VIA build (live keymap editing)
@@ -97,20 +102,22 @@ SKIP_GIT=true qmk flash -j 0 -kb hackman3d/orbit_controller -km viam
 
 ### The Caterina timing dance
 
-QMK will build, then print:
+QMK builds, then prints:
 
 ```
 Detecting USB port, reset your controller now...
 ```
 
-**Only then** trigger the reset (button 3 / double-tap RST-to-GND). QMK watches for the
-bootloader's serial port to appear and calls `avrdude` the moment it does.
+At this point the firmware's 1200-baud-touch auto-reset should fire automatically —
+`qmk flash` opens the device's CDC serial port at 1200 baud and the firmware jumps to the
+bootloader. If that works you won't need to do anything manually.
 
-If it says `Bootloader not found` or times out:
+If the auto-reset does not fire (another program is holding the port, or the
+device enumerates without a CDC interface):
 
-- You reset too early. Start the command first, reset *after* the prompt appears.
-- Single-tap instead of double-tap — try again with a fast double-tap.
-- Another program is holding the port (Arduino IDE serial monitor, VIA, 3DxWare). Close them.
+- Close Arduino IDE serial monitor, VIA, and 3DxWare — they can hold the port.
+- Press button 3 (`QK_BOOT`) as a fallback.
+- Or double-tap RST-to-GND.
 
 ### Manual flash, if the automatic path misbehaves
 
@@ -147,8 +154,12 @@ tail -1 hackman3d_orbit_controller_viam.hex     # must be  :00000001FF
 avr-size --target=ihex hackman3d_orbit_controller_viam.hex
 ```
 
-Expect **10,574 bytes** for `default` and **11,920** for `viam`. Note the on-disk file is
-~33 KB — that is Intel HEX ASCII encoding, roughly 3× the real flash figure, not a problem.
+Expect **11,500 bytes** for `default` and **12,832** for `viam` (both with VIRTSER enabled).
+Note the on-disk `.hex` file is ~30–34 KB — that is Intel HEX ASCII encoding, roughly 3× the
+real flash figure.
+
+For reference, before VIRTSER was added: default 10,574 / viam 11,920. The CDC serial interface
+costs 880–926 bytes and 3 USB endpoints, but we have room.
 
 ---
 
