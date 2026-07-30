@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackman3D Button Remapper</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1117;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding: 16px;
+    max-width: 520px;
+  }
+
+  h1 { font-size: 17px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .subtitle { font-size: 12px; color: #555; margin-bottom: 14px; }
+
+  /* ---- Open file bar ---- */
+  .open-bar {
+    display: flex; align-items: center; gap: 10px;
+    background: #1a1d27; border: 1px solid #2a2d3a;
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 12px;
+  }
+  .open-bar .file-name {
+    font-size: 13px; color: #555; flex: 1;
+    font-family: "SF Mono","Fira Code",monospace;
+  }
+  .open-bar .file-name.loaded { color: #4caf82; }
+
+  /* ---- Button cards ---- */
+  .button-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+  .button-card {
+    background: #1a1d27; border: 1px solid #2a2d3a;
+    border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .button-card-header {
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid #2a2d3a;
+  }
+
+  .btn-badge {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 54px; background: #23263a; flex-shrink: 0; gap: 1px;
+    border-right: 1px solid #2a2d3a; padding: 10px 0;
+  }
+
+  .btn-badge-label {
+    font-size: 8px; font-weight: 700; color: #555;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+
+  .btn-badge-num {
+    font-size: 22px; font-weight: 700; color: #fff; line-height: 1;
+  }
+
+  .header-summary {
+    flex: 1; display: flex; justify-content: center; gap: 28px; padding: 8px 12px;
+  }
+
+  .header-summary-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+
+  .header-summary-label {
+    font-size: 10px; color: #8888aa; text-transform: uppercase; letter-spacing: .06em;
+  }
+
+  .header-summary-value {
+    font-size: 13px; color: #e0e0e0; font-family: "SF Mono","Fira Code",monospace;
+    font-weight: 600;
+  }
+
+  /* ---- Press rows ---- */
+  .press-row {
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid #1e2030;
+  }
+  .press-row:last-child { border-bottom: none; }
+
+  .press-tag {
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0; width: 54px; text-align: center;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; line-height: 1.3;
+    border-right: 1px solid #1e2030;
+    padding: 8px 0;
+  }
+  .press-tag.short { background: #172b22; color: #6dd9a8; }
+  .press-tag.long  { background: #241e10; color: #e0a060; }
+
+  .press-fields { display: flex; gap: 10px; flex: 1; align-items: flex-end; padding: 8px 10px; }
+
+  .field-group { flex: 1; }
+  .field-group.mod { flex: 1.3; }
+  .field-label { font-size: 11px; color: #555; margin-bottom: 4px; }
+
+  select {
+    width: 100%; background: #12141c; border: 1px solid #2a2d3a;
+    border-radius: 6px; color: #e0e0e0; font-size: 13px; padding: 7px 10px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: #4f7cff; }
+
+  .preview {
+    display: flex; align-items: center; gap: 3px;
+    min-width: 80px; flex-shrink: 0; padding-bottom: 1px;
+  }
+  .preview kbd {
+    display: inline-block; background: #23263a; border: 1px solid #333;
+    border-radius: 4px; padding: 2px 6px; font-size: 12px; color: #ccc;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* ---- Save bar ---- */
+  .save-bar { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    padding: 10px 22px; border-radius: 8px; font-size: 14px;
+    font-weight: 500; border: none; cursor: pointer; transition: opacity .15s;
+  }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn:not(:disabled):hover { opacity: .82; }
+  .btn-primary   { background: #4f7cff; color: #fff; }
+  .btn-open      { background: #23263a; color: #ccc; border: 1px solid #333; }
+  .btn-secondary { background: #1a1d27; color: #aaa; border: 1px solid #2a2d3a; }
+
+  .status { font-size: 13px; color: #555; flex: 1; }
+  .status.ok    { color: #4caf82; }
+  .status.error { color: #e05555; }
+
+  hr.divider { border: none; border-top: 1px solid #1e2030; margin: 14px 0; }
+
+  .editor { display: none; }
+  .editor.visible { display: block; }
+</style>
+</head>
+<body>
+
+<h1>Hackman3D Button Remapper</h1>
+<p class="subtitle">Slicer layer &mdash; firmware v1.1.0 &mdash; edits Hackman3D_Orbit_Controller.ino directly</p>
+
+<div class="open-bar">
+  <button class="btn btn-open" onclick="openFile()">Open .ino file</button>
+  <span class="file-name" id="fileName">No file loaded</span>
+</div>
+
+<div class="editor" id="editor">
+  <div class="button-cards" id="buttonCards"></div>
+
+  <hr class="divider">
+
+  <div class="save-bar">
+    <button class="btn btn-primary" onclick="onSave()">Save to .ino</button>
+    <button class="btn btn-secondary" onclick="onReset()">Reset changes</button>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Key / modifier tables
+// ---------------------------------------------------------------------------
+
+const MODIFIERS = {
+  0x00: 'None',
+  0x01: 'Ctrl',
+  0x02: 'Shift',
+  0x03: 'Ctrl + Shift',
+  0x04: 'Alt',
+  0x05: 'Ctrl + Alt',
+  0x06: 'Shift + Alt',
+  0x07: 'Ctrl + Shift + Alt',
+  0x08: 'Γîÿ Cmd',
+  0x09: 'Γîÿ Cmd + Ctrl',
+  0x0A: 'Γîÿ Cmd + Shift',
+  0x0B: 'Γîÿ Cmd + Ctrl + Shift',
+  0x0C: 'Γîÿ Cmd + Alt',
+  0x0E: 'Γîÿ Cmd + Shift + Alt',
+};
+
+const MODIFIER_KBD = {
+  0x00: null,
+  0x01: 'Ctrl',      0x02: 'Shift',         0x03: 'Ctrl+Shift',
+  0x04: 'Alt',       0x05: 'Ctrl+Alt',       0x06: 'Shift+Alt',    0x07: 'Ctrl+Shift+Alt',
+  0x08: 'Γîÿ',         0x09: 'Γîÿ Ctrl',        0x0A: 'Γîÿ Shift',      0x0B: 'Γîÿ Ctrl+Shift',
+  0x0C: 'Γîÿ Alt',     0x0E: 'Γîÿ Shift+Alt',
+};
+
+const KEYS = {
+  0x00: 'None',
+  0x04:'A', 0x05:'B', 0x06:'C', 0x07:'D', 0x08:'E', 0x09:'F',
+  0x0A:'G', 0x0B:'H', 0x0C:'I', 0x0D:'J', 0x0E:'K', 0x0F:'L',
+  0x10:'M', 0x11:'N', 0x12:'O', 0x13:'P', 0x14:'Q', 0x15:'R',
+  0x16:'S', 0x17:'T', 0x18:'U', 0x19:'V', 0x1A:'W', 0x1B:'X',
+  0x1C:'Y', 0x1D:'Z',
+  0x1E:'1', 0x1F:'2', 0x20:'3', 0x21:'4', 0x22:'5',
+  0x23:'6', 0x24:'7', 0x25:'8', 0x26:'9', 0x27:'0',
+  0x28:'Enter', 0x29:'Escape', 0x2A:'Backspace', 0x2B:'Tab', 0x2C:'Space',
+  0x3A:'F1', 0x3B:'F2', 0x3C:'F3', 0x3D:'F4',
+  0x3E:'F5', 0x3F:'F6', 0x40:'F7', 0x41:'F8',
+  0x42:'F9', 0x43:'F10', 0x44:'F11', 0x45:'F12',
+  0x4A:'Home', 0x4B:'Page Up', 0x4C:'Delete',
+  0x4D:'End',  0x4E:'Page Down',
+  0x4F:'Right', 0x50:'Left', 0x51:'Down', 0x52:'Up',
+};
+
+// ---------------------------------------------------------------------------
+// Firmware mapping  (firmware v1.1.0)
+// Each entry maps a (button index, press type) to the .ino constant names.
+// Each action slot has its own independent modifier constant in the firmware.
+// Every slot shows a modifier dropdown and can be patched independently by
+// this tool without affecting other slots.
+// ---------------------------------------------------------------------------
+
+// The firmware assigns actions to buttons via SLICER_BUTTON_ACTIONS[BUTTON_COUNT].
+// Default: button 0 = TAB_SEND, button 1 = PAINT, button 2 = HOME.
+// The key/modifier constants are per-action, not per-button, so we resolve
+// button -> action -> constants at parse time.
+
+const ACTION_CODE = {
+  HOME:  'SLICER_BUTTON_ACTION_HOME',
+  PAINT: 'SLICER_BUTTON_ACTION_PAINT',
+  TAB:   'SLICER_BUTTON_ACTION_TAB_SEND',
+};
+const ACTION_CODE_TO_KEY = Object.fromEntries(Object.entries(ACTION_CODE).map(([k,v])=>[v,k]));
+
+// Per-action shortcut constants (v1.1.0: one modifier constant per slot)
+const ACTION_SHORTCUTS = {
+  HOME:  {
+    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_HOME_SHORT',  keyConst: 'SLICER_SHORTCUT_KEY_0' },
+    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_HOME_LONG',   keyConst: 'SLICER_SHORTCUT_KEY_A' },
+  },
+  PAINT: {
+    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_PAINT_SHORT', keyConst: 'SLICER_SHORTCUT_KEY_N' },
+    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_PAINT_LONG',  keyConst: 'SLICER_SHORTCUT_KEY_L' },
+  },
+  TAB: {
+    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_TAB_SHORT',   keyConst: 'SLICER_SHORTCUT_KEY_TAB' },
+    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_TAB_LONG',    keyConst: 'SLICER_SHORTCUT_KEY_G'   },
+  },
+};
+
+const SHORTCUT_CONSTANTS = [
+  'SLICER_SHORTCUT_MODIFIER_HOME_SHORT',
+  'SLICER_SHORTCUT_MODIFIER_HOME_LONG',
+  'SLICER_SHORTCUT_MODIFIER_PAINT_SHORT',
+  'SLICER_SHORTCUT_MODIFIER_PAINT_LONG',
+  'SLICER_SHORTCUT_MODIFIER_TAB_SHORT',
+  'SLICER_SHORTCUT_MODIFIER_TAB_LONG',
+  'SLICER_SHORTCUT_KEY_0', 'SLICER_SHORTCUT_KEY_A',
+  'SLICER_SHORTCUT_KEY_G', 'SLICER_SHORTCUT_KEY_L',
+  'SLICER_SHORTCUT_KEY_N', 'SLICER_SHORTCUT_KEY_TAB',
+];
+
+// Button 1 (index 0) action is not reassignable via this UI.
+// Its shortcuts are still editable.
+const FIXED_BUTTON = 0;
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+let fileHandle = null;
+let originalText = '';
+let state = null;
+let draft = null;
+
+// ---------------------------------------------------------------------------
+// Parse .ino
+// ---------------------------------------------------------------------------
+
+function getUint8(text, name) {
+  const m = text.match(new RegExp(`const uint8_t\\s+${name}\\s*=\\s*(0x[0-9A-Fa-f]+)\\s*;`));
+  return m ? parseInt(m[1], 16) : null;
+}
+
+function getButtonActions(text) {
+  // Matches both [3] (v1.0.0) and [BUTTON_COUNT] (v1.1.0+)
+  const m = text.match(/const int\s+SLICER_BUTTON_ACTIONS\s*\[\s*(?:3|BUTTON_COUNT)\s*\]\s*=\s*\{([^}]+)\}/);
+  if (!m) return ['TAB', 'PAINT', 'HOME'];
+  return m[1].split(',').map(t => ACTION_CODE_TO_KEY[t.trim()] || t.trim());
+}
+
+function parseState(text) {
+  const constants = {};
+  for (const name of SHORTCUT_CONSTANTS) constants[name] = getUint8(text, name);
+  return { buttonActions: getButtonActions(text), constants };
+}
+
+// ---------------------------------------------------------------------------
+// Patch .ino
+// ---------------------------------------------------------------------------
+
+function applyPatch(text, patch) {
+  let out = text;
+  for (const [name, value] of Object.entries(patch.constants)) {
+    const hex = `0x${value.toString(16).toUpperCase().padStart(2,'0')}`;
+    out = out.replace(
+      new RegExp(`(const uint8_t\\s+${name}\\s*=\\s*)0x[0-9A-Fa-f]+(\\s*;)`),
+      `$1${hex}$2`
+    );
+  }
+  const vals = patch.buttonActions.map(a => ACTION_CODE[a]).join(',\n  ');
+  // Matches both [3] (v1.0.0) and [BUTTON_COUNT] (v1.1.0+); preserves the
+  // original bracket token so we don't downgrade a v1.1.0 file to [3].
+  out = out.replace(
+    /const int(\s+)SLICER_BUTTON_ACTIONS(\s*\[\s*(?:3|BUTTON_COUNT)\s*\]\s*)=\s*\{[^}]+\};/s,
+    (_, sp, bracket) =>
+      `const int${sp}SLICER_BUTTON_ACTIONS${bracket}= {\n  ${vals}\n};`
+  );
+  return out;
+}
+
+function makeBackup(text, name) {
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+  const bname = `${name}.backup_${ts}`;
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([text], {type:'text/plain'})),
+    download: bname,
+  });
+  a.click();
+  return bname;
+}
+
+// ---------------------------------------------------------------------------
+// File System Access API
+// ---------------------------------------------------------------------------
+
+async function openFile() {
+  if (!window.showOpenFilePicker) {
+    setStatus('File System Access API not supported ΓÇö use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Arduino sketch', accept: { 'text/plain': ['.ino'] } }],
+      multiple: false,
+    });
+    const file = await fileHandle.getFile();
+    originalText = await file.text();
+    state = parseState(originalText);
+    draft = JSON.parse(JSON.stringify(state));
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileName').classList.add('loaded');
+    document.getElementById('editor').classList.add('visible');
+    setStatus('');
+    render();
+  } catch (e) {
+    if (e.name !== 'AbortError') setStatus('Could not open file: ' + e.message, 'error');
+  }
+}
+
+async function writeFile(text) {
+  // Suggest a name next to the opened file (same folder, _remapped suffix).
+  const origName = fileHandle.name;                           // e.g. Hackman3D_Orbit_Controller.ino
+  const stem     = origName.replace(/\.ino$/i, '');
+  const suggested = `${stem}_remapped.ino`;
+
+  let saveHandle;
+  try {
+    saveHandle = await window.showSaveFilePicker({
+      suggestedName: suggested,
+      startIn: fileHandle,                                    // open dialog beside the source file
+      types: [{ description: 'Arduino sketch', accept: { 'text/plain': ['.ino'] } }],
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') return null;                 // user cancelled
+    throw e;
+  }
+
+  const w = await saveHandle.createWritable();
+  await w.write(text);
+  await w.close();
+  return saveHandle.name;
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
+function previewHtml(modVal, keyVal) {
+  const parts = [];
+  const m = MODIFIER_KBD[modVal];
+  if (m) parts.push(`<kbd>${m}</kbd>`);
+  const k = KEYS[keyVal];
+  if (k && k !== 'None') parts.push(`<kbd>${k}</kbd>`);
+  return parts.length ? parts.join('') : '<kbd>ΓÇö</kbd>';
+}
+
+function selectOpts(map, selectedVal) {
+  return Object.entries(map)
+    .map(([v, label]) => `<option value="${v}" ${parseInt(v) === selectedVal ? 'selected':''}>${label}</option>`)
+    .join('');
+}
+
+function actionSelectOpts(selectedAction) {
+  return Object.keys(ACTION_CODE)
+    .map(a => `<option value="${a}" ${a === selectedAction ? 'selected':''}>${a}</option>`)
+    .join('');
+}
+
+function render() {
+  const { buttonActions, constants } = draft;
+
+  document.getElementById('buttonCards').innerHTML = [0, 1, 2].map(bi => {
+    const action = buttonActions[bi];
+    const sc = ACTION_SHORTCUTS[action];
+
+    // Build centered summary: short press key and long press key
+    function slotLabel(press) {
+      const { modConst, keyConst } = sc[press];
+      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const parts = [];
+      const m = MODIFIER_KBD[modVal];
+      if (m) parts.push(m);
+      const k = KEYS[keyVal];
+      if (k && k !== 'None') parts.push(k);
+      return parts.length ? parts.join(' + ') : 'ΓÇö';
+    }
+
+    const summary = `
+      <div class="header-summary">
+        <div class="header-summary-item">
+          <span class="header-summary-label">Short press</span>
+          <span class="header-summary-value" id="hsum-${bi}-short">${slotLabel('short')}</span>
+        </div>
+        <div class="header-summary-item">
+          <span class="header-summary-label">Long press</span>
+          <span class="header-summary-value" id="hsum-${bi}-long">${slotLabel('long')}</span>
+        </div>
+      </div>`;
+
+    const pressRows = ['short', 'long'].map(press => {
+      const { modConst, keyConst } = sc[press];
+      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const pressId = `${bi}_${press}`;
+
+      const modField = modConst
+        ? `<div class="field-group mod">
+             <div class="field-label">Modifier</div>
+             <select onchange="onModChange(this,'${modConst}','${pressId}','${keyConst}')">
+               ${selectOpts(MODIFIERS, modVal)}
+             </select>
+           </div>`
+        : '';
+
+      return `
+        <div class="press-row">
+          <span class="press-tag ${press}">${press === 'short' ? 'Short<br>press' : 'Long<br>press'}</span>
+          <div class="press-fields">
+            ${modField}
+            <div class="field-group">
+              <div class="field-label">Key</div>
+              <select onchange="onKeyChange(this,'${keyConst}','${pressId}','${modConst || ''}')">
+                ${selectOpts(KEYS, keyVal)}
+              </select>
+            </div>
+            <div class="preview" id="prev-${pressId}">${previewHtml(modVal, keyVal)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="button-card">
+        <div class="button-card-header">
+          <span class="btn-badge">
+            <span class="btn-badge-label">Button</span>
+            <span class="btn-badge-num">${bi + 1}</span>
+          </span>
+          ${summary}
+        </div>
+        ${pressRows}
+      </div>`;
+  }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Event handlers
+// ---------------------------------------------------------------------------
+
+function onActionChange(sel, bi) {
+  draft.buttonActions[bi] = sel.value;
+  render(); // re-render to show new action's key constants
+}
+
+function onModChange(sel, modConst, pressId, keyConst) {
+  const modVal = parseInt(sel.value);
+  draft.constants[modConst] = modVal;
+  const keyVal = draft.constants[keyConst] ?? 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = previewHtml(modVal, keyVal);
+  refreshSharedModPreviews(modConst);
+  const bi = parseInt(pressId.split('_')[0]);
+  updateHeaderSummary(bi);
+}
+
+function onKeyChange(sel, keyConst, pressId, modConst) {
+  const keyVal = parseInt(sel.value);
+  draft.constants[keyConst] = keyVal;
+  const modVal = modConst ? (draft.constants[modConst] ?? 0) : 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = previewHtml(modVal, keyVal);
+  const bi = parseInt(pressId.split('_')[0]);
+  updateHeaderSummary(bi);
+}
+
+function refreshSharedModPreviews(changedModConst) {
+  draft.buttonActions.forEach((action, bi) => {
+    ['short', 'long'].forEach(press => {
+      const slot = ACTION_SHORTCUTS[action][press];
+      if (slot.modConst === changedModConst) {
+        const pressId = `${bi}_${press}`;
+        const modVal = draft.constants[changedModConst] ?? 0;
+        const keyVal = draft.constants[slot.keyConst] ?? 0;
+        const el = document.getElementById(`prev-${pressId}`);
+        if (el) el.innerHTML = previewHtml(modVal, keyVal);
+      }
+    });
+  });
+}
+
+function updateHeaderSummary(bi) {
+  const action = draft.buttonActions[bi];
+  const sc = ACTION_SHORTCUTS[action];
+  ['short', 'long'].forEach(press => {
+    const { modConst, keyConst } = sc[press];
+    const modVal = modConst ? (draft.constants[modConst] ?? 0) : 0;
+    const keyVal = draft.constants[keyConst] ?? 0;
+    const parts = [];
+    const m = MODIFIER_KBD[modVal];
+    if (m) parts.push(m);
+    const k = KEYS[keyVal];
+    if (k && k !== 'None') parts.push(k);
+    const el = document.getElementById(`hsum-${bi}-${press}`);
+    if (el) el.textContent = parts.length ? parts.join(' + ') : 'ΓÇö';
+  });
+}
+
+async function onSave() {
+  setStatus('Saving\u2026');
+  try {
+    const patched  = applyPatch(originalText, draft);
+    const savedName = await writeFile(patched);
+    if (savedName === null) { setStatus(''); return; }        // user cancelled Save dialog
+    state = JSON.parse(JSON.stringify(draft));
+    setStatus(`Saved as: ${savedName}`, 'ok');
+  } catch (e) {
+    setStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
+function onReset() {
+  draft = JSON.parse(JSON.stringify(state));
+  render();
+  setStatus('');
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>

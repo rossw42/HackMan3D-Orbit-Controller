@@ -22,15 +22,15 @@
 const int DEADZONE_INPUT  = 40;
 
 // EN: Output deadzone applied before sending values to the computer.
-// FR: Zone morte appliquée avant l’envoi des valeurs au PC.
+// FR: Zone morte appliquée avant l'envoi des valeurs au PC.
 const int DEADZONE_OUTPUT = 45;
 
 // EN: Number of samples used at startup to calculate joystick center positions.
-// FR: Nombre d’échantillons utilisés au démarrage pour calibrer les centres.
+// FR: Nombre d'échantillons utilisés au démarrage pour calibrer les centres.
 const int CENTER_SAMPLES  = 100;
 
 // EN: Smoothing divisor. Higher value = smoother but slower response.
-// FR: Diviseur de lissage. Plus la valeur est haute, plus c’est doux mais lent.
+// FR: Diviseur de lissage. Plus la valeur est haute, plus c'est doux mais lent.
 const int SMOOTH_DIVISOR  = 5;
 
 
@@ -74,7 +74,7 @@ const float SPEED_MODE_RESPONSE_CURVE[SPEED_MODE_COUNT] = {
 };
 
 // EN: Serial debug output. Keep disabled during normal HID use.
-// FR: Sortie debug série. Garder désactivé pendant l’utilisation HID normale.
+// FR: Sortie debug série. Garder désactivé pendant l'utilisation HID normale.
 const bool DEBUG_SERIAL = false;
 const unsigned long DEBUG_SERIAL_BAUD = 115200;
 const unsigned long DEBUG_SERIAL_INTERVAL_MS = 100;
@@ -161,11 +161,11 @@ const int MODE_SWITCH_BUTTONS[BUTTON_COUNT] = { 0, 1, 2 };
 const int MODE_SWITCH_BUTTON_COUNT = 3;
 
 // EN: If true, the mode-switch button combo is not sent as normal HID buttons.
-// FR: Si vrai, la combinaison de changement de mode n’est pas envoyée en HID.
+// FR: Si vrai, la combinaison de changement de mode n'est pas envoyée en HID.
 const bool MODE_SWITCH_SUPPRESS_BUTTONS = true;
 
 // EN: Time to wait for the full combo before sending individual combo buttons.
-// FR: Temps d’attente de la combinaison avant d’envoyer les boutons séparés.
+// FR: Temps d'attente de la combinaison avant d'envoyer les boutons séparés.
 const unsigned long MODE_SWITCH_CHORD_WINDOW_MS = 250;
 
 // EN: Minimum time between two speed mode changes.
@@ -189,7 +189,7 @@ const unsigned long SLICER_MODE_DEBOUNCE_MS = 500;
 int center[8];
 
 // EN: Smoothed values sent to the computer.
-// FR: Valeurs lissées envoyées à l’ordinateur.
+// FR: Valeurs lissées envoyées à l'ordinateur.
 int16_t smoothTX = 0;
 int16_t smoothTY = 0;
 int16_t smoothTZ = 0;
@@ -613,7 +613,7 @@ void applyOutputDeadzone(int16_t &x, int16_t &y, int16_t &z,
 // ============================================================================
 // countPositive4()
 // EN: Counts how many of 4 values are above a threshold.
-// FR: Compte combien de 4 valeurs sont au-dessus d’un seuil.
+// FR: Compte combien de 4 valeurs sont au-dessus d'un seuil.
 // ============================================================================
 
 int countPositive4(int a, int b, int c, int d, int threshold) {
@@ -672,7 +672,7 @@ int16_t smoothValue(int16_t current, int16_t target) {
 // ============================================================================
 // applyGain()
 // EN: Applies sensitivity gain to an axis value.
-// FR: Applique la sensibilité à la valeur d’un axe.
+// FR: Applique la sensibilité à la valeur d'un axe.
 // ============================================================================
 
 int16_t applyGain(int16_t value, float gain) {
@@ -746,7 +746,7 @@ void resetSmoothing() {
 // ============================================================================
 // resetModeSwitchChord()
 // EN: Clears temporary state used while detecting a speed-mode button chord.
-// FR: Réinitialise l’état temporaire de détection de la combinaison de boutons.
+// FR: Réinitialise l'état temporaire de détection de la combinaison de boutons.
 // ============================================================================
 
 void resetModeSwitchChord() {
@@ -765,7 +765,7 @@ void resetModeSwitchChord() {
 // movements.
 //
 // FR:
-// Garde uniquement l’axe dominant et annule les autres.
+// Garde uniquement l'axe dominant et annule les autres.
 // Cela rend la souris 3D plus facile à contrôler et réduit les mouvements
 // parasites en diagonale.
 // ============================================================================
@@ -799,7 +799,7 @@ void keepOnlyDominantAxis(int16_t &tx, int16_t &ty, int16_t &tz,
 // Sends translation and rotation reports to the computer.
 //
 // FR:
-// Envoie les rapports de translation et de rotation à l’ordinateur.
+// Envoie les rapports de translation et de rotation à l'ordinateur.
 // ============================================================================
 
 void sendCommand(int16_t rx, int16_t ry, int16_t rz,
@@ -1156,7 +1156,7 @@ int8_t scaleMouseWheel(int16_t value) {
 // ============================================================================
 // sendSlicerMouseReport()
 // EN: Sends a relative USB mouse report for slicer mouse emulation.
-// FR: Envoie un rapport souris USB relatif pour l’émulation slicer.
+// FR: Envoie un rapport souris USB relatif pour l'émulation slicer.
 // ============================================================================
 
 void sendSlicerMouseReport(int8_t x, int8_t y, int8_t wheel) {
@@ -1167,7 +1167,7 @@ void sendSlicerMouseReport(int8_t x, int8_t y, int8_t wheel) {
 // ============================================================================
 // setSlicerMouseButton()
 // EN: Updates one mouse button used by slicer mouse emulation.
-// FR: Met à jour un bouton souris utilisé par l’émulation slicer.
+// FR: Met à jour un bouton souris utilisé par l'émulation slicer.
 // ============================================================================
 
 void setSlicerMouseButton(uint8_t button, bool pressed) {
@@ -1188,7 +1188,7 @@ void setSlicerMouseButton(uint8_t button, bool pressed) {
 // ============================================================================
 // releaseSlicerMouseButtons()
 // EN: Releases mouse buttons used by slicer mouse emulation.
-// FR: Relâche les boutons souris utilisés par l’émulation slicer.
+// FR: Relâche les boutons souris utilisés par l'émulation slicer.
 // ============================================================================
 
 void releaseSlicerMouseButtons() {
@@ -1204,7 +1204,7 @@ void releaseSlicerMouseButtons() {
 // ============================================================================
 // sendSlicerKeyboardShortcut()
 // EN: Sends one keyboard shortcut through the slicer keyboard interface.
-// FR: Envoie un raccourci clavier via l’interface clavier slicer.
+// FR: Envoie un raccourci clavier via l'interface clavier slicer.
 // ============================================================================
 
 void sendSlicerKeyboardShortcut(uint8_t modifiers, uint8_t key) {
@@ -1221,7 +1221,7 @@ void sendSlicerKeyboardShortcut(uint8_t modifiers, uint8_t key) {
 // ============================================================================
 // resetSlicerButtonActions()
 // EN: Clears slicer button shortcut state without sending actions.
-// FR: Réinitialise l’état des raccourcis sans envoyer d’action.
+// FR: Réinitialise l'état des raccourcis sans envoyer d'action.
 // ============================================================================
 
 void resetSlicerButtonActions() {
@@ -1511,7 +1511,7 @@ void setup() {
 // Boucle principale :
 // 1. Lecture des joysticks.
 // 2. Soustraction des centres calibrés.
-// 3. Application de la zone morte d’entrée.
+// 3. Application de la zone morte d'entrée.
 // 4. Calcul des translations et rotations.
 // 5. Détection de la montée/descente Z et de la rotation Z.
 // 6. Application de la priorité rotation anti-dérive.
@@ -1569,7 +1569,7 @@ void loop() {
   //
   // FR:
   // Si au moins 3 capteurs bougent dans le même sens, le firmware considère
-  // que c’est un mouvement vertical haut/bas.
+  // que c'est un mouvement vertical haut/bas.
   int zPushPull = v[0] + v[2] + v[4] + v[6];
 
   int zPosCount = countPositive4(v[0], v[2], v[4], v[6], DEADZONE_INPUT);
@@ -1598,7 +1598,7 @@ void loop() {
   //
   // FR:
   // Si au moins 3 capteurs latéraux bougent dans le même sens, le firmware
-  // l’interprète comme une rotation autour de l’axe Z.
+  // l'interprète comme une rotation autour de l'axe Z.
   int zTwist = v[1] + v[3] + v[5] + v[7];
 
   int rzPosCount = countPositive4(v[1], v[3], v[5], v[7], DEADZONE_INPUT);
@@ -1658,7 +1658,7 @@ void loop() {
   rotZ = applyGain(rotZ, GAIN_RZ);
 
   // --------------------------------------------------------------------------
-  // DOMINANT AXIS FILTER / FILTRE D’AXE DOMINANT
+  // DOMINANT AXIS FILTER / FILTRE D'AXE DOMINANT
   // --------------------------------------------------------------------------
 
   if (ENABLE_DOMINANT_AXIS_FILTER) {
@@ -1731,7 +1731,7 @@ void loop() {
   // Axis order is adjusted here to match the 3Dconnexion driver behavior.
   //
   // FR:
-  // L’ordre des axes est ajusté ici pour correspondre au comportement du driver
+  // L'ordre des axes est ajusté ici pour correspondre au comportement du driver
   // 3Dconnexion.
   if (slicerMouseModeEnabled) {
     sendCommand(0, 0, 0, 0, 0, 0);
