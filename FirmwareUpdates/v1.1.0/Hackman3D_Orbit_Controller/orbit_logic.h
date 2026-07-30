@@ -42,13 +42,30 @@
 // ============================================================================
 // Response-curve lookup table
 // EN: 64-entry table for pow(x, curve) where x ∈ [0,1] and curve ∈ {1.3,1.6,1.9}.
-//     Each entry stores round(pow(i/63.0, curve) * 256) as uint8_t.
+//     Each entry stores round(pow(i/56.0, curve) * 256), clamped to 256.
 //     Three tables, one per speed mode.
+//
+//     NOTE the divisor is 56, not 64: full output is deliberately reached at
+//     i=56 (88.9% of deflection), so the top ~11% of joystick travel is a flat
+//     maximum. You do not have to bottom out the stick to get full speed.
+//     Do not "normalise" this to i/63 — it would make the device feel slower
+//     at the extremes.
+//
+//     Type is uint16_t because the saturated entries hold 256, which does NOT
+//     fit in a uint8_t.  Prior to v1.1.1 these tables were uint8_t and the
+//     eight trailing 256s silently truncated to 0, which made every axis
+//     collapse to zero past ~88% deflection instead of maxing out.  See
+//     qmk/test/lut_bug_check.c for the proof.
+//
 // FR: Table de 64 entrées pour pow(x, courbe), une par mode de vitesse.
+//     Le diviseur est 56 (et non 64) : la sortie maximale est atteinte à 88,9 %
+//     de la course, les ~11 % restants formant un plateau.
+//     Le type uint16_t est requis : la valeur 256 ne tient pas dans un uint8_t
+//     (bug corrigé — les entrées saturées devenaient 0).
 // ============================================================================
 
 // curve = 1.9  (slow/precision mode)
-static const uint8_t CURVE_TABLE_1_9[64] = {
+static const uint16_t CURVE_TABLE_1_9[64] = {
     0,  0,  0,  0,  1,  1,  2,  3,
     4,  5,  6,  8, 10, 12, 14, 16,
    19, 22, 25, 28, 31, 35, 38, 42,
@@ -60,7 +77,7 @@ static const uint8_t CURVE_TABLE_1_9[64] = {
 };
 
 // curve = 1.6  (default mode)
-static const uint8_t CURVE_TABLE_1_6[64] = {
+static const uint16_t CURVE_TABLE_1_6[64] = {
     0,  0,  0,  1,  2,  3,  4,  6,
     8, 10, 12, 15, 17, 20, 23, 26,
    30, 33, 37, 41, 45, 49, 53, 58,
@@ -72,7 +89,7 @@ static const uint8_t CURVE_TABLE_1_6[64] = {
 };
 
 // curve = 1.3  (fast mode)
-static const uint8_t CURVE_TABLE_1_3[64] = {
+static const uint16_t CURVE_TABLE_1_3[64] = {
     0,  0,  1,  2,  4,  6,  8, 10,
    13, 16, 19, 22, 25, 29, 32, 36,
    40, 44, 48, 52, 56, 61, 65, 70,
@@ -115,13 +132,14 @@ inline int16_t applyGain(int16_t value, int16_t gainFP) {
 // ============================================================================
 // lookupCurve()
 // EN: Looks up a piecewise-linear approximation of pow(normalized, curve)
-//     from a 64-entry uint8_t table.  Returns a value in [0, 256].
+//     from a 64-entry uint16_t table.  Returns a value in [0, 256].
 //     normalized must be in [0, 255] (i.e. the 8-bit fraction of the range).
+//     Table type is uint16_t so the saturated value 256 is representable.
 // FR: Approximation linéaire par morceaux de pow(normalized, courbe)
-//     depuis une table de 64 entrées uint8_t.
+//     depuis une table de 64 entrées uint16_t (256 ne tient pas dans uint8_t).
 // ============================================================================
 
-inline int16_t lookupCurve(uint8_t normalized8, const uint8_t* table) {
+inline int16_t lookupCurve(uint8_t normalized8, const uint16_t* table) {
   // Map 8-bit normalized [0,255] to table index [0,63] with interpolation
   uint8_t  idx  = normalized8 >> 2;          // integer part (0..63)
   uint8_t  frac = (normalized8 & 0x03) << 6; // fractional part (0..192)
@@ -162,7 +180,7 @@ inline int16_t applyResponseCurve(int16_t value,
   uint8_t norm8    = (uint8_t)((deltaMag * 255) / rangeFP);
 
   // Lookup curve
-  const uint8_t* tbl;
+  const uint16_t* tbl;
   switch (curveTableIdx) {
     case 0:  tbl = CURVE_TABLE_1_9; break;
     case 2:  tbl = CURVE_TABLE_1_3; break;
@@ -279,8 +297,20 @@ static const int16_t SPEED_SCALE_FP[3] = {
 };
 
 // EN: inputMax fixed-point values (inputMax × 256) for each axis.
-//     inputMax = analogRange × gain.  analogRange = 1024 for X/Y, 2048 for Z.
+//     inputMax = analogRange × gain, where analogRange is the widest value the
+//     axis can reach BEFORE gain (one channel deviates at most ±512):
+//       TX/TY/RX/RY  two channels differenced      -> 1024
+//       TZ           four channels summed          -> 2048
+//       RZ           four channels summed, THEN
+//                    divided by Z_ROTATION_DIVISOR -> 1024
+//     RZ therefore uses 1024, not 2048, even though it sums four channels.
+//     That is correct — do not "fix" it. Raising it to 2048 would make
+//     applyResponseCurve() normalise against a range twice the real maximum,
+//     costing RZ roughly two thirds of its output. Verified by
+//     qmk/test/input_max_check.c.
 // FR: Valeurs inputMax virgule fixe pour chaque axe.
+//     RZ utilise 1024 (et non 2048) car rotZ est divisé par
+//     Z_ROTATION_DIVISOR ; ce n'est pas une erreur.
 static const int32_t INPUT_MAX_TX_FP256 = (int32_t)(1024L * 333);  // 1024 × GAIN_TX_FP
 static const int32_t INPUT_MAX_TY_FP256 = (int32_t)(1024L * 333);
 static const int32_t INPUT_MAX_TZ_FP256 = (int32_t)(2048L * 589);
