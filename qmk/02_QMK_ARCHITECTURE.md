@@ -4,8 +4,9 @@ Target: `d:\GitHub2\qmk_firmware\keyboards\hackman3d\orbit_controller\`
 
 QMK checkout: **0.33.8+3** (`2dc5e397`), branch `master`.
 
-**Status:** scaffolded and building — `default` = 10,574 B, `via` = 11,920 B. Files marked
-*(planned)* below do not exist yet; they land in Phases 3–9 of `06_TASKLIST.md`.
+**Status:** scaffolded, `qmk lint` clean, both keymaps building — `default` = 10,574 B,
+`viam` = 11,920 B. Files marked *(planned)* below do not exist yet; they land in Phases 3–9
+of `06_TASKLIST.md`.
 
 ---
 
@@ -30,11 +31,35 @@ keyboards/hackman3d/
     ├── orbit_leds.c             # (planned) TX/RX LED blink state machines
     └── keymaps/
         ├── default/keymap.c     # 3 buttons × 3 layers, no VIA
-        └── via/
+        └── viam/                # "via" is a forbidden keymap name - see below
             ├── keymap.c
             ├── config.h         # DYNAMIC_KEYMAP_LAYER_COUNT 3, MACRO_COUNT 0
             └── rules.mk         # VIA_ENABLE = yes
 ```
+
+### The VIA keymap must not be named `via`
+
+QMK master **rejects** keymaps named `via`. `.gitignore` lists
+`/keyboards/**/keymaps/via/*` (VIA keymaps were deprecated from the main repo), and
+`qmk lint` fails with:
+
+```
+☒ hackman3d/orbit_controller: The keymap via should not exist!
+☒ Lint check failed for: hackman3d/orbit_controller
+```
+
+It is named **`viam`** instead — the convention `ploopy_viamenus` uses. It still sets
+`VIA_ENABLE = yes` and produces identical VIA-capable firmware (verified: same 11,920 bytes
+before and after the rename). Build with `make hackman3d/orbit_controller:viam`.
+
+### Gotcha: `qmk` CLI vs. multiple QMK trees
+
+If `qmk compile -kb hackman3d/orbit_controller` reports
+`invalid keyboard_folder_or_all value`, the CLI is pointed at a different QMK checkout. Check
+with `qmk config user.qmk_home`, and either repoint it or use `make` from the correct tree.
+
+**The `QMK_HOME` environment variable does not override `user.qmk_home`** — the CLI reads its
+config file, so `QMK_HOME=... qmk compile` silently keeps using the configured tree.
 
 Plus, outside the keyboard folder:
 
@@ -120,8 +145,6 @@ QMK reads these with `analogReadPin(pin)`, which returns 10-bit (0–1023), iden
     },
     "features": {
         "bootmagic": false,
-        "command": false,
-        "console": false,
         "extrakey": false,
         "mousekey": false,
         "nkro": false,
@@ -153,6 +176,9 @@ Notes:
   `pointing_device` for real mouse deltas). Saves flash.
 - `bootmagic: false` — holding a button at boot must not wipe EEPROM; our chords use all 3
   buttons.
+- `command` and `console` are **not** listed even though we want them off: they already
+  default to `false`, and `qmk lint` warns *"Option duplicates default value"* if you restate
+  them.
 
 ## 4. `rules.mk`
 
@@ -179,7 +205,7 @@ SPACE_CADET_ENABLE = no
 LTO is set via `"build": {"lto": true}` in `keyboard.json`, not `LTO_ENABLE` in `rules.mk` —
 the data-driven form is preferred in current QMK.
 
-`orbit_via.c` is added by `keymaps/via/rules.mk` (only compiled for the VIA keymap).
+`orbit_via.c` is added by `keymaps/viam/rules.mk` (only compiled for the VIA keymap).
 
 ## 5. `config.h`
 

@@ -46,7 +46,7 @@ harness first makes every later phase verifiable instead of hopeful.
 - [x] `keyboards/hackman3d/orbit_controller/keyboard.json` (doc `02` §3)
 - [x] `config.h`, `rules.mk`, `readme.md`
 - [x] `keymaps/default/keymap.c` — 3 buttons, 3 layers
-- [x] `keymaps/via/` with `VIA_ENABLE`, 3 layers, 0 macros
+- [x] `keymaps/viam/` with `VIA_ENABLE`, 3 layers, 0 macros
 - [x] `orbit_controller.h` — pin table, layer enum, module API
 - [x] `orbit_controller.c` — post_init / housekeeping skeleton
 - [x] **Both builds succeed:** `default` = 10,574 B (36 %), `via` = 11,920 B (41 %)
@@ -151,7 +151,7 @@ against physical movement. Do not trust the pin table without this check.
 
 ## Phase 8 — Live keymap editing (VIA)
 
-- [ ] `keymaps/via/` with `VIA_ENABLE = yes`
+- [ ] `keymaps/viam/` with `VIA_ENABLE = yes`
 - [ ] `DYNAMIC_KEYMAP_LAYER_COUNT 3`, `DYNAMIC_KEYMAP_MACRO_COUNT 0`
 - [ ] 3-layer keymap: base (joystick buttons), slicer-short, slicer-long
 - [ ] `orbit_slicer.c` long-press dispatch via `keymap_key_to_keycode()` + `tap_code16()`

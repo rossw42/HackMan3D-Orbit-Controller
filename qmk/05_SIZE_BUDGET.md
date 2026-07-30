@@ -23,7 +23,7 @@ These are builds of `keyboards/hackman3d/orbit_controller` as scaffolded (Phase 
 | Build | Flash | % | Free |
 |---|---|---|---|
 | `hackman3d/orbit_controller:default` | **10,574** | 36 % | **18,098** |
-| `hackman3d/orbit_controller:via` | **11,920** | 41 % | **16,752** |
+| `hackman3d/orbit_controller:viam` | **11,920** | 41 % | **16,752** |
 
 **VIA costs only 1,346 bytes** on this keyboard. That is the headline result: the original
 feasibility study's "+4–6 KB, likely does not fit" was off by roughly 4×.
@@ -86,7 +86,7 @@ VIA "likely does not fit." Two things changed:
 
 | Component | Flash | Source |
 |---|---|---|
-| `orbit_controller:via` skeleton | 11,920 | **measured** |
+| `orbit_controller:viam` skeleton | 11,920 | **measured** |
 | Orbit Controller application code | ~6,500 | estimated |
 | **Projected total** | **~18,400** | |
 | **Budget** | **28,672** | |

@@ -43,14 +43,42 @@ Scaffold is in place and **both builds compile**:
 | Build | Flash | Budget |
 |---|---|---|
 | `hackman3d/orbit_controller:default` | 10,574 B (36 %) | 28,672 B |
-| `hackman3d/orbit_controller:via` | 11,920 B (41 %) | 28,672 B |
+| `hackman3d/orbit_controller:viam` | 11,920 B (41 %) | 28,672 B |
 
 VIA costs only **1,346 bytes** here — the original feasibility study's fear that VIA "likely
 does not fit" was wrong by ~4×. With ~16.7 KB free in the VIA build and the application
 estimated at ~6.5 KB, there is ample headroom. Details in `05_SIZE_BUDGET.md`.
 
-Next up is Phase 0 (golden-reference test harness) and Phase 1 (the QMK core patch). See
-`06_TASKLIST.md`.
+`qmk lint` passes for both keymaps. Next up is Phase 0 (golden-reference test harness) and
+Phase 1 (the QMK core patch). See `06_TASKLIST.md`.
+
+## Building
+
+From the root of the QMK tree that contains `keyboards/hackman3d/`:
+
+```bash
+make hackman3d/orbit_controller:default   # 6DOF only
+make hackman3d/orbit_controller:viam      # + VIA live keymap & tuning
+```
+
+Two things that will bite you:
+
+1. **The VIA keymap is called `viam`, not `via`.** QMK master gitignores
+   `/keyboards/**/keymaps/via/*` and `qmk lint` fails with *"The keymap via should not
+   exist!"* — VIA keymaps were deprecated from the main repo. `viam` (the `ploopy_viamenus`
+   convention) still sets `VIA_ENABLE = yes` and builds byte-identical firmware.
+
+2. **`qmk compile` uses `user.qmk_home`, and `QMK_HOME` does not override it.** If you get
+   `invalid keyboard_folder_or_all value: 'hackman3d/orbit_controller'`, the CLI is looking at
+   a different QMK checkout:
+
+   ```bash
+   qmk config user.qmk_home                       # where is it looking?
+   qmk config user.qmk_home=/path/to/qmk_firmware # repoint it
+   ```
+
+   Exporting `QMK_HOME=...` has **no effect** — the CLI reads its config file. Using `make`
+   from the correct tree avoids the issue entirely.
 
 ## Prior work
 

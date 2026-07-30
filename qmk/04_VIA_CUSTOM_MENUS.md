@@ -566,7 +566,7 @@ cosmetic in the JSON but should match the C enum name for maintainability.
 
 ## 7. Build flags
 
-`keyboards/hackman3d/orbit_controller/keymaps/via/rules.mk`:
+`keyboards/hackman3d/orbit_controller/keymaps/viam/rules.mk`:
 
 ```make
 VIA_ENABLE = yes
