@@ -61,6 +61,12 @@ make hackman3d/orbit_controller:default   # 6DOF only
 make hackman3d/orbit_controller:viam      # + VIA live keymap & tuning
 ```
 
+Or via the CLI (`-j 0` = unlimited parallel jobs, `SKIP_GIT=true` skips the submodule check):
+
+```bash
+SKIP_GIT=true qmk compile -j 0 -kb hackman3d/orbit_controller -km viam
+```
+
 Two things that will bite you:
 
 1. **The VIA keymap is called `viam`, not `via`.** QMK master gitignores
