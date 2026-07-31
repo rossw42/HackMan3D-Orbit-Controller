@@ -1,14 +1,23 @@
-# Hackman3D Tuning Configurator
+# Hackman3D Orbit Controller — Configurator
 
-A browser-based GUI for editing firmware parameters in `Hackman3D_Orbit_Controller.ino` — no code editing required.
+A single browser-based GUI for **tuning firmware parameters** and **remapping slicer button shortcuts** in `Hackman3D_Orbit_Controller.ino` — no code editing required.
+
+**File:** [`HackMan3D_Orbit_Controller-configurator.html`](./HackMan3D_Orbit_Controller-configurator.html)
 
 ---
 
 ## Overview
 
-`tuning.html` reads your `.ino` firmware file directly in the browser, presents every tunable parameter as a slider, toggle, or dropdown, and writes the changes back to the same file when you save. A timestamped backup is automatically downloaded before each save.
+The configurator reads your `.ino` firmware file directly in the browser and presents two tabs:
 
-For a full explanation of what each parameter does and recommended values, see [`TUNING_GUIDE.md`](../TUNING_GUIDE.md).
+- **⚙ Tuning** — every tunable parameter as a slider, toggle, or dropdown (dead zones, smoothing, sensitivity, speed modes, slicer mouse mode, LED feedback, debounce, debug output, etc).
+- **⌨ Button Remapping** — short-press / long-press keyboard shortcut assignment for all three physical buttons in slicer mouse mode.
+
+Both tabs share one **Save all changes to .ino** action, so tuning and remapping changes are written together in a single pass. A timestamped backup is automatically downloaded before each save.
+
+This tool replaces the two previous standalone tools (`Configurator/tuning.html` and `ButtonRemapper/remap.html`), which are kept in the repository for reference but are no longer the recommended entry point.
+
+For a full explanation of what each tuning parameter does and recommended values, see [`TUNING_GUIDE.md`](../TUNING_GUIDE.md).
 
 ---
 
@@ -21,136 +30,169 @@ For a full explanation of what each parameter does and recommended values, see [
 
 ## How to use
 
-1. Open `tuning.html` in Chrome or Edge (double-click the file or drag it into the browser).
+1. Open `HackMan3D_Orbit_Controller-configurator.html` in Chrome or Edge (double-click the file or drag it into the browser).
 2. Click **Open .ino file** and select `Hackman3D_Orbit_Controller.ino` from your Arduino sketch folder.
-3. Adjust settings using the sliders, toggles, and dropdowns.
-4. Click **Save to .ino** when done.
+3. Use the **⚙ Tuning** tab to adjust controller parameters, and/or the **⌨ Button Remapping** tab to change keyboard shortcuts.
+4. Click **Save all changes to .ino** when done.
    - A `.backup_<timestamp>` file is downloaded automatically before the save.
 5. Upload the firmware again with Arduino IDE.
 6. Unplug and reconnect the controller — do not touch the knob during startup.
 
-> **Tip:** Use **Discard changes** to undo all unsaved edits. Use **Reset all to defaults** to restore factory values (save afterward to apply).
+> **Tip:** Each tab has its own **Discard changes** button to undo unsaved edits in that tab only. The Tuning tab also has **Reset tuning to defaults** to restore factory tuning values (save afterward to apply). Discarding/resetting one tab does not affect the other.
 
 ---
 
-## Parameters
+## Firmware version detection
 
-Parameters are grouped into collapsible sections. Click any section header to expand or collapse it.
+When a file loads, a badge next to the file name shows the detected firmware version (parsed from the `Version:` comment in the `.ino` header). The tool works with both:
+
+- **v1.0.0** — the shipped monolithic `.ino` (single file, float math).
+- **v1.1.0** — the refactored `.ino` + `orbit_logic.h` + `orbit_buttons.h` + `orbit_hid_descriptors.h` + `orbit_slicer_hid.h` (fixed-point math, EEPROM persistence, LED feedback, button debounce).
+
+### ⚠ Fixed-point firmware notice (v1.1.0+)
+
+If the opened `.ino` includes `orbit_logic.h`, a warning banner appears at the top of the Tuning tab. On this firmware:
+
+- `GAIN_TX/TY/TZ/RX/RY/RZ`, `MAX_SPEED_SCALE`, and `RESPONSE_CURVE` are kept in the `.ino` as **documentation-only** constants. The real math uses fixed-point equivalents (`GAIN_*_FP`, `SPEED_SCALE_FP[]`, `CURVE_TABLE_*`) defined in `orbit_logic.h`. Editing these sliders saves harmless values to the `.ino` but has **no effect on-device**.
+- The **Speed mode profiles** section is display-only on this firmware — the `SPEED_MODE_SCALE[]` / `SPEED_MODE_RESPONSE_CURVE[]` arrays no longer exist in v1.1.0 (replaced by `SPEED_SCALE_FP[]` + lookup tables), so edits there are silently discarded on save.
+- To change real sensitivity/speed/response-curve behavior on v1.1.0 firmware, edit `orbit_logic.h` directly.
+- **All other sections work normally** on both firmware versions: dead zones, smoothing/calibration, axis behavior, Z-axis gesture detection, slicer mouse mode, button debounce, LED feedback, speed-mode/slicer-mode button shortcuts, and serial debug.
+
+---
+
+## Tuning tab — parameters
+
+Parameters are grouped into collapsible sections. Click any section header to expand or collapse it. Sections/rows marked **NEW** were introduced in firmware v1.1.0 and are harmless no-ops if present in a v1.0.0 file that doesn't declare them (defaults are used).
 
 ### Dead zones
 
 | Parameter | Default | Range | Description |
 |---|---|---|---|
-| `DEADZONE_INPUT` | 40 | 30–70 | Filters electrical noise after reading the joysticks. Increase if the controller moves by itself; decrease if it needs too much force to react. |
-| `DEADZONE_OUTPUT` | 45 | 25–80 | Filters small final values before sending to the computer. Increase if the camera drifts after releasing the knob; decrease if fine movements feel imprecise. |
+| `DEADZONE_INPUT` | 40 | 30–70 | Filters electrical noise after reading the joysticks. |
+| `DEADZONE_OUTPUT` | 45 | 25–80 | Filters small final values before sending to the computer. |
 
 ### Smoothing & calibration
 
 | Parameter | Default | Range | Description |
 |---|---|---|---|
-| `SMOOTH_DIVISOR` | 5 | 3–8 | Higher = smoother but slower. Lower = faster but less filtered. |
-| `CENTER_SAMPLES` | 100 | 50–200 | Readings used during startup calibration. More = more stable center but longer startup. |
+| `SMOOTH_DIVISOR` | 5 | 3–8 | Higher = smoother but slower. |
+| `CENTER_SAMPLES` | 100 | 50–200 | Readings used during startup calibration. |
+| `CALIBRATION_MIN` **NEW** | 300 | 100–500 | Lowest acceptable analog center value at startup before the error LED flashes. |
+| `CALIBRATION_MAX` **NEW** | 750 | 600–950 | Highest acceptable analog center value at startup before the error LED flashes. |
 
 ### Speed & response curve
 
 | Parameter | Default | Range | Description |
 |---|---|---|---|
-| `MAX_SPEED_SCALE` | 0.70 | 0.50–1.00 | Global speed cap for all axes. |
-| `RESPONSE_CURVE` | 1.60 | 1.0–2.2 | How progressively the controller reacts near center. Higher = softer start. |
-| `DEFAULT_SPEED_MODE` | 1 (Normal) | 0 / 1 / 2 | Which speed mode the controller starts in (0 = Slow, 1 = Normal, 2 = Fast). |
+| `MAX_SPEED_SCALE` | 0.70 | 0.50–1.00 | Global speed cap for all axes. *(Fixed-point firmware: display-only, see warning above.)* |
+| `RESPONSE_CURVE` | 1.60 | 1.0–2.2 | How progressively the controller reacts near center. *(Fixed-point firmware: display-only.)* |
+| `DEFAULT_SPEED_MODE` | 1 (Normal) | 0/1/2 | Which speed mode the controller starts in. |
 
 ### Speed mode profiles
 
-Three independent profiles, each with its own scale and response curve.
+Three independent profiles (scale + curve). *(Fixed-point firmware: display-only — see warning above.)*
 
-| Mode | Default scale | Default curve |
-|---|---|---|
-| 0 — Slow | 0.50 | 1.9 |
-| 1 — Normal | 0.70 (= `MAX_SPEED_SCALE`) | 1.6 (= `RESPONSE_CURVE`) |
-| 2 — Fast | 1.00 | 1.3 |
+### Translation / Rotation sensitivity
 
-Switch modes at runtime by pressing all three buttons simultaneously (configurable — see Speed mode button shortcut below).
-
-### Translation sensitivity
-
-| Parameter | Default | Range | Description |
-|---|---|---|---|
-| `GAIN_TX` | 1.3 | 1.0–3.0 | Left / right sensitivity. |
-| `GAIN_TY` | 1.3 | 1.0–3.0 | Forward / backward sensitivity. |
-| `GAIN_TZ` | 2.3 | 1.0–3.0 | Up / down sensitivity. |
-
-### Rotation sensitivity
-
-| Parameter | Default | Range | Description |
-|---|---|---|---|
-| `GAIN_RX` | 1.8 | 1.2–3.0 | Rotate around X. |
-| `GAIN_RY` | 1.8 | 1.2–3.0 | Rotate around Y. |
-| `GAIN_RZ` | 2.0 | 1.2–3.0 | Twist around Z. |
+`GAIN_TX`, `GAIN_TY`, `GAIN_TZ`, `GAIN_RX`, `GAIN_RY`, `GAIN_RZ` — see [`TUNING_GUIDE.md`](../TUNING_GUIDE.md) for full defaults/ranges. *(Fixed-point firmware: display-only.)*
 
 ### Axis behavior
 
 | Parameter | Default | Description |
 |---|---|---|
-| `ROTATION_PRIORITY` | 0.65 | Lower = rotation gets more priority over translation. Range: 0.45–1.00. |
-| `ENABLE_DOMINANT_AXIS_FILTER` | Off | When on, only the strongest movement axis is sent. Useful if diagonal movements are too frequent. |
+| `ROTATION_PRIORITY` | 0.65 | Lower = rotation gets more priority over translation. |
+| `ROTATION_PRIORITY_THRESHOLD` **NEW** | 80 | Minimum combined rotation strength before priority can cancel translation. |
+| `ENABLE_DOMINANT_AXIS_FILTER` | Off | When on, only the strongest movement axis is sent. |
+
+### Z-axis gesture detection **NEW**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `Z_PUSHPULL_THRESHOLD_MULT` | 2 | Multiplier on `DEADZONE_INPUT` required to detect a push/pull gesture. |
+| `Z_ROTATION_THRESHOLD_MULT` | 3 | Multiplier on `DEADZONE_INPUT` required to detect a twist gesture. |
+| `Z_ROTATION_DIVISOR` | 2 | Divides the raw twist signal before it becomes RZ output. |
 
 ### Speed mode button shortcut
 
-| Parameter | Default | Description |
-|---|---|---|
-| `MODE_SWITCH_BUTTON_COUNT` | 3 | How many buttons must be held simultaneously to cycle speed modes. Set to 0 to disable. |
-| `MODE_SWITCH_SUPPRESS_BUTTONS` | On | When on, the shortcut combo is not forwarded to the computer as normal button presses. |
-| `MODE_SWITCH_CHORD_WINDOW_MS` | 250 ms | Time window to complete the button combo. Increase if CAD software receives one button before the full combo; decrease if held single buttons feel delayed. Range: 150–400. |
-| `MODE_SWITCH_DEBOUNCE_MS` | 500 ms | Lockout after switching speed mode. Increase if one press cycles more than one mode. Range: 300–700. |
+`MODE_SWITCH_BUTTON_COUNT`, `MODE_SWITCH_SUPPRESS_BUTTONS`, `MODE_SWITCH_CHORD_WINDOW_MS`, `MODE_SWITCH_DEBOUNCE_MS` — unchanged from v1.0.0, see [`TUNING_GUIDE.md`](../TUNING_GUIDE.md).
 
 ### Slicer mouse mode
 
-For slicers or 3D applications that do not respond to SpaceMouse HID reports. Activate at runtime by holding buttons 2 + 3.
+All original v1.0.0 parameters plus two **NEW** additions:
 
 | Parameter | Default | Description |
 |---|---|---|
-| `ENABLE_SLICER_MOUSE_MODE` | On | Enable or disable slicer mouse mode support entirely. |
-| `DEFAULT_SLICER_MOUSE_MODE` | Off | Start in slicer mouse mode instead of CAD mode. |
-| `ENABLE_SLICER_KEYBOARD_SHORTCUTS` | On | Enable keyboard shortcuts in slicer mode. |
-| `SLICER_MOUSE_MOVE_DIVISOR` | 120 | Controls drag speed. Increase if view moves too fast; decrease if too slow. |
-| `SLICER_MOUSE_WHEEL_THRESHOLD` | 90 | Minimum movement before zoom activates. Increase if zoom starts too easily. |
-| `SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS` | 45 ms | Fastest zoom repeat rate. Lower = faster zoom. |
-| `SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS` | 125 ms | Slowest zoom repeat rate. Higher = slower zoom. |
-| `SLICER_MOUSE_AUTO_DRAG` | On | Automatically hold the mouse button while dragging in slicer mode. |
-| `SLICER_BUTTON_LONG_PRESS_MS` | 650 ms | Hold duration required to trigger a long-press action in slicer mode. |
+| `SLICER_MODE_HOLD_MS` **NEW** | 250 ms | How long the CAD/slicer toggle combo must be held before switching. |
+| `SLICER_MODE_DEBOUNCE_MS` **NEW** | 500 ms | Minimum time between two CAD/slicer mode toggles. |
+
+### Button debounce **NEW**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `BUTTON_DEBOUNCE_MS` | 10 ms | How long a button reading must stay stable before being accepted. Prevents mechanical switch bounce from causing spurious mode changes. |
+
+### LED feedback **NEW**
+
+| Parameter | Default | Description |
+|---|---|---|
+| `LED_BLINK_ON_MS` | 80 ms | TX LED on-time during each speed-mode blink. |
+| `LED_BLINK_OFF_MS` | 120 ms | TX LED off-time between speed-mode blinks. |
+| `RX_LED_HOLD_MS` | 500 ms | How long the RX LED stays solid after toggling slicer mouse mode. |
 
 ### Serial debug output
 
-| Parameter | Default | Description |
-|---|---|---|
-| `DEBUG_SERIAL` | Off | Enable serial output for debugging. Keep off during normal use. |
-| `DEBUG_SERIAL_INTERVAL_MS` | 100 ms | How often to print debug data. Higher = less output. |
-
-When `DEBUG_SERIAL` is on, open the Arduino Serial Monitor or Serial Plotter at **115200 baud**.
+`DEBUG_SERIAL`, `DEBUG_SERIAL_INTERVAL_MS` — unchanged from v1.0.0.
 
 ---
 
-## Save behaviour
+## Button Remapping tab
 
-- **Save to .ino** — patches all changed values directly into the `.ino` file and downloads a timestamped backup first.
-- **Discard changes** — reloads all controls from the last saved state of the file.
-- **Reset all to defaults** — sets every control to the factory default value. You must save afterward to write the change to the file.
+Each of the 3 physical buttons has a **short-press** and **long-press** keyboard shortcut used while **slicer mouse mode** is active. Each slot shows:
+
+- A **Modifier** dropdown (None, Ctrl, Shift, Alt, Cmd, and combinations).
+- A **Key** dropdown (letters, numbers, function keys, navigation keys, Tab/Enter/Escape/etc).
+- A live preview of the resulting shortcut (e.g. `⌘` `L`).
+
+Each physical button has its own generic, independent set of four constants — no "action" concept to track:
+
+```cpp
+SLICER_SHORTCUT_MODIFIER_BUTTON1_SHORT / SLICER_SHORTCUT_KEY_BUTTON1_SHORT
+SLICER_SHORTCUT_MODIFIER_BUTTON1_LONG  / SLICER_SHORTCUT_KEY_BUTTON1_LONG
+SLICER_SHORTCUT_MODIFIER_BUTTON2_SHORT / SLICER_SHORTCUT_KEY_BUTTON2_SHORT
+SLICER_SHORTCUT_MODIFIER_BUTTON2_LONG  / SLICER_SHORTCUT_KEY_BUTTON2_LONG
+SLICER_SHORTCUT_MODIFIER_BUTTON3_SHORT / SLICER_SHORTCUT_KEY_BUTTON3_SHORT
+SLICER_SHORTCUT_MODIFIER_BUTTON3_LONG  / SLICER_SHORTCUT_KEY_BUTTON3_LONG
+```
+
+Button numbering (1, 2, 3) matches the badge shown on each card in the UI. All 12 constants are
+independently patchable — changing one never affects another button's shortcut. This naming
+replaces the earlier action-based scheme (`SLICER_BUTTON_ACTION_HOME/PAINT/TAB_SEND` +
+`SLICER_BUTTON_ACTIONS[]`), which required the tool and the user to track an extra layer of
+indirection between "button" and "action" that added no real value.
+
+
+---
+
+## Save behavior
+
+- **Save all changes to .ino** — patches all changed tuning values and button remap constants directly into the `.ino` file in a single write, and downloads a timestamped backup first.
+- **Discard tuning changes** — reloads Tuning tab controls from the last saved state of the file.
+- **Reset tuning to defaults** — sets every Tuning tab control to the factory default value (does not affect Button Remapping). Save afterward to write the change to the file.
+- **Discard remap changes** — reloads Button Remapping tab controls from the last saved state of the file.
 
 ---
 
 ## Recommended tuning order
 
-Change one setting at a time. After each change, upload the firmware and test in your CAD software before adjusting the next value.
-
 1. `DEADZONE_INPUT`
 2. `DEADZONE_OUTPUT`
 3. `SMOOTH_DIVISOR`
-4. `MAX_SPEED_SCALE`
-5. `RESPONSE_CURVE`
-6. Speed mode scales and curves (if you use speed modes)
-7. Slicer mouse settings (if you use slicer mouse mode)
+4. `MAX_SPEED_SCALE` *(v1.0.0 only — see fixed-point notice for v1.1.0)*
+5. `RESPONSE_CURVE` *(v1.0.0 only)*
+6. Speed mode scales and curves, if used *(v1.0.0 only)*
+7. Slicer mouse settings, if used
 8. `ENABLE_DOMINANT_AXIS_FILTER`
-9. Individual translation and rotation gains
+9. Individual translation and rotation gains *(v1.0.0 only)*
 10. `ROTATION_PRIORITY`
 
 ---
@@ -169,4 +211,15 @@ If the knob is touched during startup, unplug and reconnect without touching the
 
 ## Safe default values
 
-If tuning goes wrong, click **Reset all to defaults** in the configurator, then save and re-upload. The full default value table is in [`TUNING_GUIDE.md § 16`](../TUNING_GUIDE.md#16-safe-default-values).
+If tuning goes wrong, click **Reset tuning to defaults** in the configurator, then save and re-upload. The full default value table is in [`TUNING_GUIDE.md § 16`](../TUNING_GUIDE.md#16-safe-default-values).
+
+---
+
+## Legacy standalone tools
+
+The original single-purpose tools remain in the repository for reference and are still functional:
+
+- [`tuning.html`](./tuning.html) — tuning-only, does not include the v1.1.0 parameters or button remapping.
+- [`../ButtonRemapper/remap.html`](../ButtonRemapper/remap.html) — button remapping only, does not include tuning.
+
+New users should use `HackMan3D_Orbit_Controller-configurator.html` instead, since it covers both tools' functionality in one place with firmware-version-aware warnings.

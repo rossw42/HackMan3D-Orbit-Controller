@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackman3D Orbit Controller — Configurator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0f1117; color: #e0e0e0;
+  min-height: 100vh; padding: 16px 20px 40px; max-width: 1180px; margin: 0 auto;
+}
+h1 { font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.subtitle { font-size: 12.5px; color: #666; margin-bottom: 14px; }
+.subtitle b { color: #8fa4e0; }
+
+/* ---- Open file bar ---- */
+.open-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+}
+.open-bar .file-name { font-size: 13px; color: #555; flex: 1; min-width: 160px; font-family: "SF Mono","Fira Code",monospace; }
+.open-bar .file-name.loaded { color: #4caf82; }
+.fw-badge {
+  font-size: 11px; font-weight: 700; color: #aac0ff; background: #1e2138;
+  border: 1px solid #33396a; border-radius: 5px; padding: 3px 8px;
+  font-family: "SF Mono","Fira Code",monospace; display: none;
+}
+.fw-badge.show { display: inline-block; }
+
+.btn {
+  padding: 9px 18px; border-radius: 8px; font-size: 13px;
+  font-weight: 500; border: none; cursor: pointer; transition: opacity .15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .35; cursor: default; }
+.btn:not(:disabled):hover { opacity: .82; }
+.btn-primary   { background: #4f7cff; color: #fff; }
+.btn-open      { background: #23263a; color: #ccc; border: 1px solid #333; }
+.btn-secondary { background: #1a1d27; color: #aaa; border: 1px solid #2a2d3a; }
+.btn-danger    { background: #3a1a1a; color: #e07070; border: 1px solid #5a2a2a; }
+
+.editor { display: none; }
+.editor.visible { display: block; }
+
+/* ---- Tabs ---- */
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid #2a2d3a;
+}
+.tab-btn {
+  background: transparent; border: none; color: #777;
+  padding: 10px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.tab-btn:hover { color: #ccc; }
+.tab-btn.active { color: #fff; border-bottom-color: #4f7cff; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ---- Section cards ---- */
+.section {
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid #2a2d3a;
+}
+.section-header:hover { background: #1e2135; }
+.section-title { font-size: 13px; font-weight: 600; color: #c0c8ff; }
+.section-title small { color: #666; font-weight: 400; margin-left: 6px; }
+.section-caret { font-size: 11px; color: #555; transition: transform .15s; }
+.section-caret.open { transform: rotate(90deg); }
+.section-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.section-body.collapsed { display: none; }
+
+/* ---- Row ---- */
+.row { display: flex; flex-direction: column; gap: 4px; }
+.row-label { display: flex; align-items: baseline; justify-content: space-between; }
+.row-name { font-size: 12px; font-weight: 600; color: #aac0ff; font-family: "SF Mono","Fira Code",monospace; }
+.row-val  { font-size: 13px; font-weight: 700; color: #fff; min-width: 42px; text-align: right; }
+.row-hint { font-size: 11px; color: #555; line-height: 1.4; }
+
+/* ---- Slider ---- */
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: #2a2d3a; border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: #4f7cff; cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px; border: none;
+  border-radius: 50%; background: #4f7cff; cursor: pointer;
+}
+
+/* ---- Toggle ---- */
+.toggle-wrap { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #2a2d3a; border-radius: 11px; transition: .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+}
+.toggle input:checked + .toggle-slider { background: #4f7cff; }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+.toggle-label { font-size: 13px; color: #aaa; }
+
+/* ---- Select (shared base) ---- */
+select {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 6px; color: #e0e0e0; font-size: 13px; padding: 6px 10px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  cursor: pointer;
+}
+select:focus { outline: none; border-color: #4f7cff; }
+.select-compact { max-width: 220px; }
+.select-full { width: 100%; padding: 7px 10px; }
+
+/* ---- Speed mode cards ---- */
+.speed-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.speed-card {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.speed-card-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+.speed-cards .row-name { font-size: 11px; }
+
+/* ---- Two-column grid ---- */
+.col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+@media (max-width: 760px) { .col-grid { grid-template-columns: 1fr; } }
+
+/* ---- Bottom bar ---- */
+hr.divider { border: none; border-top: 1px solid #1e2030; margin: 14px 0; }
+.save-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  position: sticky; bottom: 0; background: #0f1117;
+  padding: 12px 0 4px; border-top: 1px solid #1e2030; margin-top: 16px;
+}
+.status { font-size: 13px; color: #555; flex: 1; min-width: 160px; }
+.status.ok    { color: #4caf82; }
+.status.error { color: #e05555; }
+
+/* ---- Button remapper cards ---- */
+.button-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.button-card {
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 10px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.button-card-header { display: flex; align-items: stretch; border-bottom: 1px solid #2a2d3a; }
+.btn-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 68px; background: #23263a; flex-shrink: 0; gap: 2px;
+  border-right: 1px solid #2a2d3a; padding: 10px 4px;
+}
+.btn-badge-label { font-size: 8px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+.btn-badge-num { font-size: 22px; font-weight: 700; color: #fff; line-height: 1; }
+.btn-badge-action { font-size: 9.5px; font-weight: 600; color: #7d90d8; text-align: center; line-height: 1.2; }
+.header-summary { flex: 1; display: flex; justify-content: center; gap: 28px; padding: 8px 12px; }
+.header-summary-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.header-summary-label { font-size: 10px; color: #8888aa; text-transform: uppercase; letter-spacing: .06em; }
+.header-summary-value { font-size: 13px; color: #e0e0e0; font-family: "SF Mono","Fira Code",monospace; font-weight: 600; }
+
+.press-row { display: flex; align-items: stretch; border-bottom: 1px solid #1e2030; }
+.press-row:last-child { border-bottom: none; }
+.press-tag {
+  font-size: 10px; font-weight: 700; flex-shrink: 0; width: 68px; text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; line-height: 1.3; border-right: 1px solid #1e2030; padding: 8px 0;
+}
+.press-tag.short { background: #172b22; color: #6dd9a8; }
+.press-tag.long  { background: #241e10; color: #e0a060; }
+.press-fields { display: flex; gap: 10px; flex: 1; align-items: flex-end; padding: 8px 10px; flex-wrap: wrap; }
+.field-group { flex: 1; min-width: 110px; }
+.field-group.mod { flex: 1.3; min-width: 140px; }
+.field-label { font-size: 11px; color: #555; margin-bottom: 4px; }
+.preview { display: flex; align-items: center; gap: 3px; min-width: 90px; flex-shrink: 0; padding-bottom: 1px; }
+.preview kbd {
+  display: inline-block; background: #23263a; border: 1px solid #333;
+  border-radius: 4px; padding: 2px 6px; font-size: 12px; color: #ccc;
+  white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---- Info panel ---- */
+.info-panel {
+  background: #141726; border: 1px solid #262a42; border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px; font-size: 12.5px; color: #9aa3c4; line-height: 1.6;
+}
+.info-panel b { color: #c7cff5; }
+.info-panel a { color: #6d8bff; text-decoration: none; }
+.info-panel a:hover { text-decoration: underline; }
+.info-panel ul { margin: 6px 0 0 18px; }
+
+.no-file-msg {
+  background: #1a1d27; border: 1px dashed #2a2d3a; border-radius: 10px;
+  padding: 40px 20px; text-align: center; color: #555; font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<h1>Hackman3D Orbit Controller — Configurator</h1>
+<p class="subtitle">Tuning &amp; button remapping in one tool — edits <b>Hackman3D_Orbit_Controller.ino</b> directly. No install, no server, Chrome/Edge only.</p>
+
+<div class="open-bar">
+  <button class="btn btn-open" onclick="openFile()">Open .ino file</button>
+  <span class="file-name" id="fileName">No file loaded</span>
+  <span class="fw-badge" id="fwBadge"></span>
+  <span id="fpFileName" style="display:none; color:#80e0a0; font-size:12px; margin-left:8px; font-family:monospace;">+ orbit_logic.h ✓</span>
+</div>
+
+<div id="noFile" class="no-file-msg">
+  Open your <code>Hackman3D_Orbit_Controller.ino</code> sketch file to start tuning parameters and remapping buttons.<br>
+  Works with both the v1.0.0 shipped firmware and the v1.1.0 refactor.
+</div>
+
+<div class="editor" id="editor">
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnTuning" onclick="switchTab('tuning')">⚙ Tuning</button>
+    <button class="tab-btn" id="tabBtnRemap" onclick="switchTab('remap')">⌨ Button Remapping</button>
+  </div>
+
+  <!-- ======================= TUNING TAB ======================= -->
+  <div class="tab-panel active" id="panelTuning">
+
+  <div class="info-panel">
+    <b>Tip:</b> change one setting at a time, save, re-flash, and test before adjusting the next value.
+    Full parameter reference: <a href="../TUNING_GUIDE.md">TUNING_GUIDE.md</a>.
+    Sections marked <b>NEW</b> were added in firmware v1.1.0 and have no effect on v1.0.0 firmware files.
+  </div>
+
+  <!-- shown when FP firmware detected but orbit_logic.h not yet loaded -->
+  <div class="info-panel" id="fpLoadPrompt" style="display:none; border-color:#2a4a2a; background:#0e1e0e; color:#80d080;">
+    <b>✓ Fixed-point firmware (v1.1.0+) detected.</b>
+    The real sensitivity and speed values live in <code>orbit_logic.h</code> — load it now so all sliders work correctly.
+    <button class="btn btn-open" style="margin-top:8px;" onclick="openOrbitLogic()">Load orbit_logic.h</button>
+  </div>
+
+  <!-- shown when orbit_logic.h is loaded and fully editable -->
+  <div class="info-panel" id="fpReadyBanner" style="display:none; border-color:#1a4a1a; background:#0a180a; color:#60c060;">
+    <b>✓ Fixed-point firmware — orbit_logic.h loaded.</b>
+    Gain and speed sliders below edit <code>orbit_logic.h</code> directly.
+    All changes save to both files when you click <b>Save all changes</b>. Re-flash the <code>.ino</code> as normal — the Arduino IDE picks up <code>orbit_logic.h</code> automatically from the same folder.
+  </div>
+
+
+  <div class="col-grid">
+  <div class="col-left">
+
+    <!-- Dead zones -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Dead zones</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEADZONE_INPUT</span><span class="row-val" id="val_DEADZONE_INPUT">—</span></div>
+          <input type="range" min="10" max="120" step="1" id="DEADZONE_INPUT" oninput="tnOnInt(this)">
+          <span class="row-hint">Removes electrical noise after reading joysticks. Increase if controller moves by itself; decrease if it needs too much force to react. Range: 30–70, default 40.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEADZONE_OUTPUT</span><span class="row-val" id="val_DEADZONE_OUTPUT">—</span></div>
+          <input type="range" min="10" max="120" step="1" id="DEADZONE_OUTPUT" oninput="tnOnInt(this)">
+          <span class="row-hint">Removes tiny movement values before sending to the computer. Increase if camera drifts after releasing knob; decrease if fine movements feel imprecise. Range: 25–80, default 45.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Smoothing & calibration -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Smoothing &amp; calibration</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">SMOOTH_DIVISOR</span><span class="row-val" id="val_SMOOTH_DIVISOR">—</span></div>
+          <input type="range" min="1" max="12" step="1" id="SMOOTH_DIVISOR" oninput="tnOnInt(this)">
+          <span class="row-hint">Higher = smoother but slower. Lower = faster but less filtered. Range: 3–8, default 5.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">CENTER_SAMPLES</span><span class="row-val" id="val_CENTER_SAMPLES">—</span></div>
+          <input type="range" min="20" max="300" step="10" id="CENTER_SAMPLES" oninput="tnOnInt(this)">
+          <span class="row-hint">Readings used during startup calibration. More = more stable center but longer startup. Range: 50–200, default 100.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">CALIBRATION_MIN <small style="color:#e0a060;font-weight:700;">NEW</small></span><span class="row-val" id="val_CALIBRATION_MIN">—</span></div>
+          <input type="range" min="100" max="500" step="10" id="CALIBRATION_MIN" oninput="tnOnInt(this)">
+          <span class="row-hint">Lowest acceptable analog center value at startup. If a joystick's resting value falls below this, the calibration-error LED flash fires. Default: 300.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">CALIBRATION_MAX <small style="color:#e0a060;font-weight:700;">NEW</small></span><span class="row-val" id="val_CALIBRATION_MAX">—</span></div>
+          <input type="range" min="600" max="950" step="10" id="CALIBRATION_MAX" oninput="tnOnInt(this)">
+          <span class="row-hint">Highest acceptable analog center value at startup. Values outside [CALIBRATION_MIN, CALIBRATION_MAX] trigger the 6-flash startup error. Default: 750.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Speed & response -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed &amp; response curve</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">MAX_SPEED_SCALE</span><span class="row-val" id="val_MAX_SPEED_SCALE">—</span></div>
+          <input type="range" min="0.10" max="1.00" step="0.01" id="MAX_SPEED_SCALE" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Global speed cap. Decrease if all axes feel too fast; increase if too slow. Range: 0.50–1.00, default 0.70.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">RESPONSE_CURVE</span><span class="row-val" id="val_RESPONSE_CURVE">—</span></div>
+          <input type="range" min="0.8" max="3.0" step="0.05" id="RESPONSE_CURVE" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">How progressively the controller reacts near center. Higher = softer start; lower = more direct. Range: 1.0–2.2, default 1.6.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEFAULT_SPEED_MODE</span><span class="row-val" id="val_DEFAULT_SPEED_MODE">—</span></div>
+          <select class="select-compact" id="DEFAULT_SPEED_MODE" onchange="tnOnSelect(this,'int')">
+            <option value="0">0 — Slow</option>
+            <option value="1">1 — Normal</option>
+            <option value="2">2 — Fast</option>
+          </select>
+          <span class="row-hint">Which speed mode the controller starts in. Default: 1 (normal).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Translation gains -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Translation sensitivity</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TX <span style="color:#555;font-weight:400;font-size:11px">Left / Right</span></span><span class="row-val" id="val_GAIN_TX">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TX" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TY <span style="color:#555;font-weight:400;font-size:11px">Forward / Backward</span></span><span class="row-val" id="val_GAIN_TY">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TZ <span style="color:#555;font-weight:400;font-size:11px">Up / Down</span></span><span class="row-val" id="val_GAIN_TZ">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TZ" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 2.3.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rotation gains -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Rotation sensitivity</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RX <span style="color:#555;font-weight:400;font-size:11px">Rotate X</span></span><span class="row-val" id="val_GAIN_RX">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RX" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RY <span style="color:#555;font-weight:400;font-size:11px">Rotate Y</span></span><span class="row-val" id="val_GAIN_RY">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RZ <span style="color:#555;font-weight:400;font-size:11px">Twist Z</span></span><span class="row-val" id="val_GAIN_RZ">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RZ" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 2.0.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Axis behavior -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Axis behavior</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">ROTATION_PRIORITY</span><span class="row-val" id="val_ROTATION_PRIORITY">—</span></div>
+          <input type="range" min="0.2" max="1.2" step="0.01" id="ROTATION_PRIORITY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Lower = rotation gets more priority over translation. Increase if translation cancels too easily. Range: 0.45–1.00, default 0.65.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">ROTATION_PRIORITY_THRESHOLD <small style="color:#e0a060;font-weight:700;">NEW</small></span><span class="row-val" id="val_ROTATION_PRIORITY_THRESHOLD">—</span></div>
+          <input type="range" min="20" max="200" step="5" id="ROTATION_PRIORITY_THRESHOLD" oninput="tnOnInt(this)">
+          <span class="row-hint">Minimum combined rotation strength before rotation priority can cancel translation. Higher = priority kicks in less often. Default: 80.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_DOMINANT_AXIS_FILTER</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_DOMINANT_AXIS_FILTER" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_DOMINANT_AXIS_FILTER">Off</span>
+          </div>
+          <span class="row-hint">When on, only the strongest movement axis is sent. Useful if diagonal movements are too frequent. Default: off.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Z-axis gesture detection (NEW) -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Z-axis gesture detection <small style="color:#e0a060;font-weight:700;">NEW</small></span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="row">
+          <div class="row-label"><span class="row-name">Z_PUSHPULL_THRESHOLD_MULT</span><span class="row-val" id="val_Z_PUSHPULL_THRESHOLD_MULT">—</span></div>
+          <input type="range" min="1" max="5" step="1" id="Z_PUSHPULL_THRESHOLD_MULT" oninput="tnOnInt(this)">
+          <span class="row-hint">Multiplier on DEADZONE_INPUT required before an up/down push-pull gesture is detected. Higher = harder to trigger accidentally. Default: 2.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">Z_ROTATION_THRESHOLD_MULT</span><span class="row-val" id="val_Z_ROTATION_THRESHOLD_MULT">—</span></div>
+          <input type="range" min="1" max="6" step="1" id="Z_ROTATION_THRESHOLD_MULT" oninput="tnOnInt(this)">
+          <span class="row-hint">Multiplier on DEADZONE_INPUT required before a twist (Z rotation) gesture is detected. Default: 3.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">Z_ROTATION_DIVISOR</span><span class="row-val" id="val_Z_ROTATION_DIVISOR">—</span></div>
+          <input type="range" min="1" max="4" step="1" id="Z_ROTATION_DIVISOR" oninput="tnOnInt(this)">
+          <span class="row-hint">Divides the raw twist signal before it becomes RZ output. Higher = gentler twist response. Default: 2.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-left -->
+  <div class="col-right">
+
+    <!-- Speed mode profiles -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed mode profiles</span>
+        <span class="section-caret open">▶</span>
+      </div>
+      <div class="section-body">
+        <div class="speed-cards" id="speedModeCards"></div>
+        <span class="row-hint" style="font-size:11px;color:#555;">Each mode has its own speed scale and response curve. Mode 0 = slow, 1 = normal, 2 = fast.</span>
+      </div>
+    </div>
+
+    <!-- Speed mode button shortcut -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed mode button shortcut</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_BUTTON_COUNT</span><span class="row-val" id="val_MODE_SWITCH_BUTTON_COUNT">—</span></div>
+          <input type="range" min="0" max="3" step="1" id="MODE_SWITCH_BUTTON_COUNT" oninput="tnOnInt(this)">
+          <span class="row-hint">How many buttons must be held to switch speed mode. Set to 0 to disable the shortcut.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_SUPPRESS_BUTTONS</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="MODE_SWITCH_SUPPRESS_BUTTONS" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_MODE_SWITCH_SUPPRESS_BUTTONS">Off</span>
+          </div>
+          <span class="row-hint">When on, the shortcut combo is not sent to the computer as normal button presses. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_CHORD_WINDOW_MS</span><span class="row-val" id="val_MODE_SWITCH_CHORD_WINDOW_MS">—</span></div>
+          <input type="range" min="50" max="600" step="10" id="MODE_SWITCH_CHORD_WINDOW_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Time allowed to complete the speed-mode combo. Increase if CAD app receives one button before the full combo; decrease if held single buttons feel delayed. Range: 150–400, default 250.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_DEBOUNCE_MS</span><span class="row-val" id="val_MODE_SWITCH_DEBOUNCE_MS">—</span></div>
+          <input type="range" min="100" max="1000" step="25" id="MODE_SWITCH_DEBOUNCE_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Debounce after switching speed mode. Increase if one press changes mode more than once. Range: 300–700, default 500.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slicer mouse mode -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Slicer mouse mode</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_SLICER_MOUSE_MODE</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_SLICER_MOUSE_MODE" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_SLICER_MOUSE_MODE">Off</span>
+          </div>
+          <span class="row-hint">Enable slicer mouse mode support. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEFAULT_SLICER_MOUSE_MODE</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="DEFAULT_SLICER_MOUSE_MODE" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_DEFAULT_SLICER_MOUSE_MODE">Off</span>
+          </div>
+          <span class="row-hint">Start in slicer mouse mode instead of CAD mode. Default: off.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_SLICER_KEYBOARD_SHORTCUTS</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_SLICER_KEYBOARD_SHORTCUTS" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_SLICER_KEYBOARD_SHORTCUTS">Off</span>
+          </div>
+          <span class="row-hint">Enable keyboard shortcuts in slicer mode. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MOVE_DIVISOR</span><span class="row-val" id="val_SLICER_MOUSE_MOVE_DIVISOR">—</span></div>
+          <input type="range" min="20" max="400" step="5" id="SLICER_MOUSE_MOVE_DIVISOR" oninput="tnOnInt(this)">
+          <span class="row-hint">Controls drag speed. Increase if view moves too fast; decrease if too slow. Default: 120.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_THRESHOLD</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_THRESHOLD">—</span></div>
+          <input type="range" min="10" max="300" step="5" id="SLICER_MOUSE_WHEEL_THRESHOLD" oninput="tnOnInt(this)">
+          <span class="row-hint">Minimum movement before zoom activates. Increase if zoom starts too easily. Default: 90.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_FULL_SCALE</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_FULL_SCALE">—</span></div>
+          <input type="range" min="200" max="1200" step="10" id="SLICER_MOUSE_WHEEL_FULL_SCALE" oninput="tnOnInt(this)">
+          <span class="row-hint">Movement magnitude that reaches maximum zoom speed. Default: 700.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MAX_MOVE</span><span class="row-val" id="val_SLICER_MOUSE_MAX_MOVE">—</span></div>
+          <input type="range" min="4" max="30" step="1" id="SLICER_MOUSE_MAX_MOVE" oninput="tnOnInt(this)">
+          <span class="row-hint">Maximum cursor step per report while dragging/panning. Default: 12.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MAX_WHEEL</span><span class="row-val" id="val_SLICER_MOUSE_MAX_WHEEL">—</span></div>
+          <input type="range" min="1" max="3" step="1" id="SLICER_MOUSE_MAX_WHEEL" oninput="tnOnInt(this)">
+          <span class="row-hint">Maximum wheel step per report while zooming. Default: 1.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS">—</span></div>
+          <input type="range" min="10" max="200" step="5" id="SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Fastest zoom repeat rate. Lower = faster zoom. Default: 45.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS">—</span></div>
+          <input type="range" min="30" max="400" step="5" id="SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Slowest zoom repeat rate. Higher = slower zoom. Default: 125.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_AUTO_DRAG</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="SLICER_MOUSE_AUTO_DRAG" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_SLICER_MOUSE_AUTO_DRAG">Off</span>
+          </div>
+          <span class="row-hint">Automatically hold mouse button while dragging in slicer mode. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_BUTTON_LONG_PRESS_MS</span><span class="row-val" id="val_SLICER_BUTTON_LONG_PRESS_MS">—</span></div>
+          <input type="range" min="100" max="1500" step="25" id="SLICER_BUTTON_LONG_PRESS_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long to hold a button for the long-press action in slicer mode. Default: 650 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MODE_HOLD_MS <small style="color:#e0a060;font-weight:700;">NEW</small></span><span class="row-val" id="val_SLICER_MODE_HOLD_MS">—</span></div>
+          <input type="range" min="50" max="1000" step="25" id="SLICER_MODE_HOLD_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long the CAD/slicer toggle combo must be held before the mode actually switches. Default: 250 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MODE_DEBOUNCE_MS <small style="color:#e0a060;font-weight:700;">NEW</small></span><span class="row-val" id="val_SLICER_MODE_DEBOUNCE_MS">—</span></div>
+          <input type="range" min="100" max="1500" step="25" id="SLICER_MODE_DEBOUNCE_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Minimum time between two CAD/slicer mode toggles. Default: 500 ms.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Button debounce (NEW) -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Button debounce <small style="color:#e0a060;font-weight:700;">NEW</small></span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">BUTTON_DEBOUNCE_MS</span><span class="row-val" id="val_BUTTON_DEBOUNCE_MS">—</span></div>
+          <input type="range" min="0" max="50" step="1" id="BUTTON_DEBOUNCE_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long a button reading must stay stable before it's accepted. Prevents mechanical switch bounce from causing spurious mode changes or double presses. Default: 10 ms.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LED feedback (NEW) -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">LED feedback <small style="color:#e0a060;font-weight:700;">NEW</small></span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">LED_BLINK_ON_MS</span><span class="row-val" id="val_LED_BLINK_ON_MS">—</span></div>
+          <input type="range" min="20" max="300" step="10" id="LED_BLINK_ON_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Duration the TX LED stays lit during each speed-mode blink. Default: 80 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">LED_BLINK_OFF_MS</span><span class="row-val" id="val_LED_BLINK_OFF_MS">—</span></div>
+          <input type="range" min="20" max="400" step="10" id="LED_BLINK_OFF_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Duration the TX LED stays off between speed-mode blinks. Default: 120 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">RX_LED_HOLD_MS</span><span class="row-val" id="val_RX_LED_HOLD_MS">—</span></div>
+          <input type="range" min="100" max="2000" step="50" id="RX_LED_HOLD_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long the RX LED stays solid after toggling slicer mouse mode. Default: 500 ms.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Serial debug -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Serial debug output</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEBUG_SERIAL</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="DEBUG_SERIAL" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_DEBUG_SERIAL">Off</span>
+          </div>
+          <span class="row-hint">Enable serial output for debugging. Keep off during normal use. Default: off.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEBUG_SERIAL_INTERVAL_MS</span><span class="row-val" id="val_DEBUG_SERIAL_INTERVAL_MS">—</span></div>
+          <input type="range" min="20" max="1000" step="10" id="DEBUG_SERIAL_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How often to print debug data. Higher = less output. Default: 100 ms.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-right -->
+  </div><!-- /col-grid -->
+
+  <div class="save-bar">
+    <button class="btn btn-secondary" onclick="tnDiscard()">Discard tuning changes</button>
+    <button class="btn btn-danger" onclick="tnResetDefaults()">Reset tuning to defaults</button>
+  </div>
+
+  </div><!-- /panelTuning -->
+
+  <!-- ======================= REMAP TAB ======================= -->
+  <div class="tab-panel" id="panelRemap">
+
+  <div class="info-panel">
+    <b>Slicer button shortcuts.</b> Each physical button (1, 2, 3) sends a short-press and a long-press keyboard
+    shortcut while <b>slicer mouse mode</b> is active. Assign a modifier key and a key independently for each
+    button's short press and long press below.
+  </div>
+
+
+  <div class="button-cards" id="buttonCards"></div>
+
+  <div class="save-bar">
+    <button class="btn btn-secondary" onclick="rmDiscard()">Discard remap changes</button>
+  </div>
+
+  </div><!-- /panelRemap -->
+
+  <hr class="divider">
+
+  <div class="save-bar">
+    <button class="btn btn-primary" onclick="onSaveAll()">Save all changes to .ino</button>
+    <span class="status" id="status"></span>
+  </div>
+
+</div><!-- /editor -->
+
+
+<script>
+// ============================================================================
+// SHARED STATE
+// ============================================================================
+let fileHandle = null;
+let originalText = '';
+let tuningBaseline = null, tuningDraft = null;
+let remapBaseline  = null, remapDraft  = null;
+
+// Fixed-point (orbit_logic.h) state
+let isFixedPoint   = false;
+let fpFileHandle   = null;
+let fpOriginalText = '';
+let fpBaseline     = null;
+let fpDraft        = null;
+
+// ============================================================================
+// TAB SWITCHING
+// ============================================================================
+function switchTab(name) {
+  document.getElementById('tabBtnTuning').classList.toggle('active', name === 'tuning');
+  document.getElementById('tabBtnRemap').classList.toggle('active', name === 'remap');
+  document.getElementById('panelTuning').classList.toggle('active', name === 'tuning');
+  document.getElementById('panelRemap').classList.toggle('active', name === 'remap');
+}
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const caret = header.querySelector('.section-caret');
+  const collapsed = body.classList.toggle('collapsed');
+  caret.classList.toggle('open', !collapsed);
+}
+
+// ============================================================================
+// TUNING MODULE
+// ============================================================================
+const TN_DEFAULTS = {
+  DEADZONE_INPUT: 40, DEADZONE_OUTPUT: 45,
+  SMOOTH_DIVISOR: 5, CENTER_SAMPLES: 100, CALIBRATION_MIN: 300, CALIBRATION_MAX: 750,
+  MAX_SPEED_SCALE: 0.70, RESPONSE_CURVE: 1.6, DEFAULT_SPEED_MODE: 1,
+  GAIN_TX: 1.3, GAIN_TY: 1.3, GAIN_TZ: 2.3, GAIN_RX: 1.8, GAIN_RY: 1.8, GAIN_RZ: 2.0,
+  SPEED_MODE_SCALE_0: 0.50, SPEED_MODE_SCALE_1: 0.70, SPEED_MODE_SCALE_2: 1.00,
+  SPEED_MODE_RESPONSE_CURVE_0: 1.9, SPEED_MODE_RESPONSE_CURVE_1: 1.6, SPEED_MODE_RESPONSE_CURVE_2: 1.3,
+  DEBUG_SERIAL: false, DEBUG_SERIAL_INTERVAL_MS: 100,
+  ROTATION_PRIORITY: 0.65, ROTATION_PRIORITY_THRESHOLD: 80, ENABLE_DOMINANT_AXIS_FILTER: false,
+  Z_PUSHPULL_THRESHOLD_MULT: 2, Z_ROTATION_THRESHOLD_MULT: 3, Z_ROTATION_DIVISOR: 2,
+  ENABLE_SLICER_MOUSE_MODE: true, DEFAULT_SLICER_MOUSE_MODE: false, ENABLE_SLICER_KEYBOARD_SHORTCUTS: true,
+  SLICER_MOUSE_MOVE_DIVISOR: 120, SLICER_MOUSE_WHEEL_THRESHOLD: 90, SLICER_MOUSE_WHEEL_FULL_SCALE: 700,
+  SLICER_MOUSE_MAX_MOVE: 12, SLICER_MOUSE_MAX_WHEEL: 1,
+  SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS: 45, SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS: 125,
+  SLICER_MOUSE_AUTO_DRAG: true, SLICER_BUTTON_LONG_PRESS_MS: 650,
+  SLICER_MODE_HOLD_MS: 250, SLICER_MODE_DEBOUNCE_MS: 500,
+  MODE_SWITCH_BUTTON_COUNT: 3, MODE_SWITCH_SUPPRESS_BUTTONS: true,
+  MODE_SWITCH_CHORD_WINDOW_MS: 250, MODE_SWITCH_DEBOUNCE_MS: 500,
+  BUTTON_DEBOUNCE_MS: 10,
+  LED_BLINK_ON_MS: 80, LED_BLINK_OFF_MS: 120, RX_LED_HOLD_MS: 500,
+};
+
+const TN_INT_KEYS = [
+  'DEADZONE_INPUT','DEADZONE_OUTPUT','CENTER_SAMPLES','SMOOTH_DIVISOR','CALIBRATION_MIN','CALIBRATION_MAX',
+  'DEFAULT_SPEED_MODE','DEBUG_SERIAL_INTERVAL_MS',
+  'SLICER_MOUSE_MOVE_DIVISOR','SLICER_MOUSE_WHEEL_THRESHOLD','SLICER_MOUSE_WHEEL_FULL_SCALE',
+  'SLICER_MOUSE_MAX_MOVE','SLICER_MOUSE_MAX_WHEEL',
+  'SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS','SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS','SLICER_BUTTON_LONG_PRESS_MS',
+  'MODE_SWITCH_BUTTON_COUNT','MODE_SWITCH_CHORD_WINDOW_MS','MODE_SWITCH_DEBOUNCE_MS',
+  'ROTATION_PRIORITY_THRESHOLD','Z_PUSHPULL_THRESHOLD_MULT','Z_ROTATION_THRESHOLD_MULT','Z_ROTATION_DIVISOR',
+  'SLICER_MODE_HOLD_MS','SLICER_MODE_DEBOUNCE_MS','BUTTON_DEBOUNCE_MS',
+  'LED_BLINK_ON_MS','LED_BLINK_OFF_MS','RX_LED_HOLD_MS',
+];
+const TN_FLOAT_KEYS = ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ','MAX_SPEED_SCALE','RESPONSE_CURVE','ROTATION_PRIORITY'];
+const TN_BOOL_KEYS  = [
+  'DEBUG_SERIAL','ENABLE_DOMINANT_AXIS_FILTER',
+  'ENABLE_SLICER_MOUSE_MODE','DEFAULT_SLICER_MOUSE_MODE',
+  'ENABLE_SLICER_KEYBOARD_SHORTCUTS','SLICER_MOUSE_AUTO_DRAG','MODE_SWITCH_SUPPRESS_BUTTONS',
+];
+
+function tnGetNum(text, name) {
+  const m = text.match(new RegExp(`const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*([^;]+);`));
+  if (!m) return null;
+  const raw = m[1].trim();
+  if (raw.includes('MAX_SPEED_SCALE') || raw.includes('RESPONSE_CURVE')) return null; // alias references
+  return parseFloat(raw);
+}
+function tnGetBool(text, name) {
+  const m = text.match(new RegExp(`const bool\\s+${name}\\s*=\\s*(true|false)\\s*;`));
+  return m ? m[1] === 'true' : null;
+}
+function tnGetArrayVal(text, name, idx) {
+  const m = text.match(new RegExp(`const (?:float|int|uint8_t)\\s+${name}\\[[^\\]]*\\]\\s*=\\s*\\{([^}]+)\\}`));
+  if (!m) return null;
+  const parts = m[1].split(',').map(s => s.trim());
+  if (idx >= parts.length) return null;
+  const v = parts[idx];
+  if (v.includes('MAX_SPEED_SCALE')) return tnGetNum(text, 'MAX_SPEED_SCALE');
+  if (v.includes('RESPONSE_CURVE'))  return tnGetNum(text, 'RESPONSE_CURVE');
+  return parseFloat(v);
+}
+
+function tnParseState(text) {
+  const d = {};
+  for (const k of TN_INT_KEYS)   { const v = tnGetNum(text, k);  d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (const k of TN_FLOAT_KEYS) { const v = tnGetNum(text, k);  d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (const k of TN_BOOL_KEYS)  { const v = tnGetBool(text, k); d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (let i = 0; i < 3; i++) {
+    const sv = tnGetArrayVal(text, 'SPEED_MODE_SCALE', i);
+    const rv = tnGetArrayVal(text, 'SPEED_MODE_RESPONSE_CURVE', i);
+    d[`SPEED_MODE_SCALE_${i}`]          = sv !== null ? sv : TN_DEFAULTS[`SPEED_MODE_SCALE_${i}`];
+    d[`SPEED_MODE_RESPONSE_CURVE_${i}`] = rv !== null ? rv : TN_DEFAULTS[`SPEED_MODE_RESPONSE_CURVE_${i}`];
+  }
+  return d;
+}
+
+function tnPatchNum(text, name, value, isFloat) {
+  const fmt = isFloat ? value.toFixed(2) : String(Math.round(value));
+  return text.replace(new RegExp(`(const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*)[^;]+(;)`), `$1${fmt}$2`);
+}
+function tnPatchBool(text, name, value) {
+  return text.replace(new RegExp(`(const bool\\s+${name}\\s*=\\s*)(?:true|false)(\\s*;)`), `$1${value ? 'true' : 'false'}$2`);
+}
+function tnPatchSpeedModeArray(text, name, vals) {
+  const fmt = vals.map(v => `  ${v.toFixed(2)}`).join(',\n');
+  return text.replace(new RegExp(`(const (?:float|int)\\s+${name}\\[[^\\]]*\\]\\s*=\\s*\\{)[^}]+(\\})`, 's'), `$1\n${fmt}\n$2`);
+}
+
+function tnApplyPatch(text, d) {
+  let out = text;
+  for (const k of TN_INT_KEYS)   out = tnPatchNum(out, k, d[k], false);
+  for (const k of TN_FLOAT_KEYS) out = tnPatchNum(out, k, d[k], true);
+  for (const k of TN_BOOL_KEYS)  out = tnPatchBool(out, k, d[k]);
+  out = tnPatchSpeedModeArray(out, 'SPEED_MODE_SCALE', [d.SPEED_MODE_SCALE_0, d.SPEED_MODE_SCALE_1, d.SPEED_MODE_SCALE_2]);
+  out = tnPatchSpeedModeArray(out, 'SPEED_MODE_RESPONSE_CURVE', [d.SPEED_MODE_RESPONSE_CURVE_0, d.SPEED_MODE_RESPONSE_CURVE_1, d.SPEED_MODE_RESPONSE_CURVE_2]);
+  return out;
+}
+
+function tnIsFloatKey(key) {
+  return TN_FLOAT_KEYS.includes(key) || key.startsWith('SPEED_MODE_SCALE_') || key.startsWith('SPEED_MODE_RESPONSE_CURVE_');
+}
+
+function tnRenderSlider(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = tuningDraft[key];
+  const v = document.getElementById('val_' + key);
+  if (v) v.textContent = tnIsFloatKey(key) ? Number(tuningDraft[key]).toFixed(2) : Math.round(tuningDraft[key]);
+}
+function tnRenderBool(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.checked = tuningDraft[key];
+  const lbl = document.getElementById('lbl_' + key);
+  if (lbl) lbl.textContent = tuningDraft[key] ? 'On' : 'Off';
+}
+function tnRenderSelect(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = String(tuningDraft[key]);
+}
+// ============================================================================
+// FIXED-POINT MODULE  (orbit_logic.h)
+// ============================================================================
+
+// Axis ranges for INPUT_MAX recalculation (TX/TY/RX/RY use 1024, TZ/RZ use 2048)
+const FP_AXIS_RANGE = { GAIN_TX:1024, GAIN_TY:1024, GAIN_TZ:2048, GAIN_RX:1024, GAIN_RY:1024, GAIN_RZ:1024 };
+
+// Default FP values (derived from defaults ×256, rounded)
+const FP_DEFAULTS = {
+  GAIN_TX: 1.3, GAIN_TY: 1.3, GAIN_TZ: 2.3, GAIN_RX: 1.8, GAIN_RY: 1.8, GAIN_RZ: 2.0,
+  SPEED_SCALE_FP_0: 0.50, SPEED_SCALE_FP_1: 0.70, SPEED_SCALE_FP_2: 1.00,
+  // curve table index per speed mode: 0=1.9(slow), 1=1.6(default), 2=1.3(fast)
+  SPEED_MODE_CURVE_IDX_0: 0, SPEED_MODE_CURVE_IDX_1: 1, SPEED_MODE_CURVE_IDX_2: 2,
+};
+const FP_CURVE_LABELS = { 0: '1.9 — Soft (slow)', 1: '1.6 — Default', 2: '1.3 — Sharp (fast)' };
+const FP_SCALE = 256;
+
+function fpGetGain(text, name) {
+  // Reads  static const int16_t GAIN_TX_FP = 333;
+  const m = text.match(new RegExp(`const int16_t\\s+${name}_FP\\s*=\\s*(\\d+)\\s*;`));
+  return m ? parseFloat((parseInt(m[1]) / FP_SCALE).toFixed(4)) : null;
+}
+function fpGetSpeedScale(text, idx) {
+  // Reads  static const int16_t SPEED_SCALE_FP[3] = { 128, 179, 256 };
+  const m = text.match(/const int16_t\s+SPEED_SCALE_FP\s*\[\s*3\s*\]\s*=\s*\{([^}]+)\}/);
+  if (!m) return null;
+  const parts = m[1].split(',').map(s => parseInt(s.trim()));
+  return parts[idx] !== undefined ? parseFloat((parts[idx] / FP_SCALE).toFixed(4)) : null;
+}
+function fpGetCurveIdx(text, idx) {
+  // Reads  const uint8_t SPEED_MODE_CURVE_IDX[3] = { 0, 1, 2 };
+  const m = text.match(/const uint8_t\s+SPEED_MODE_CURVE_IDX\s*\[[^\]]*\]\s*=\s*\{([^}]+)\}/);
+  if (!m) return null;
+  const parts = m[1].split(',').map(s => parseInt(s.trim()));
+  return parts[idx] !== undefined ? parts[idx] : null;
+}
+
+function fpParseFpState(text, ino) {
+  const d = {};
+  for (const k of ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ']) {
+    const v = fpGetGain(text, k);
+    d[k] = v !== null ? v : FP_DEFAULTS[k];
+  }
+  for (let i = 0; i < 3; i++) {
+    const v = fpGetSpeedScale(text, i);
+    d[`SPEED_SCALE_FP_${i}`] = v !== null ? v : FP_DEFAULTS[`SPEED_SCALE_FP_${i}`];
+    // curve index lives in the .ino (SPEED_MODE_CURVE_IDX array), not orbit_logic.h
+    const c = ino ? fpGetCurveIdx(ino, i) : null;
+    d[`SPEED_MODE_CURVE_IDX_${i}`] = c !== null ? c : FP_DEFAULTS[`SPEED_MODE_CURVE_IDX_${i}`];
+  }
+  return d;
+}
+
+function fpApplyFpPatch(text, ino, d) {
+  let h = text;   // patch orbit_logic.h
+  let s = ino;    // patch .ino
+
+  // Patch GAIN_*_FP in orbit_logic.h
+  for (const k of ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ']) {
+    const fp = Math.round(d[k] * FP_SCALE);
+    const comment = `// ${d[k].toFixed(2)} × ${FP_SCALE} = ${(d[k]*FP_SCALE).toFixed(1)} → ${fp}`;
+    h = h.replace(
+      new RegExp(`(const int16_t\\s+${k}_FP\\s*=\\s*)\\d+(\\s*;[^\n]*)`),
+      `$1${fp}; ${comment}`
+    );
+    // Also sync the float documentation constant in the .ino
+    s = s.replace(
+      new RegExp(`(const float\\s+${k}\\s*=\\s*)[^;]+(;)`),
+      `$1${d[k].toFixed(2)}$2`
+    );
+  }
+
+  // Patch SPEED_SCALE_FP[3] array in orbit_logic.h
+  const fps = [0,1,2].map(i => {
+    const v = d[`SPEED_SCALE_FP_${i}`];
+    const fp = Math.round(v * FP_SCALE);
+    return `  ${fp}`;
+  });
+  h = h.replace(
+    /const int16_t\s+SPEED_SCALE_FP\s*\[\s*3\s*\]\s*=\s*\{[^}]+\}/,
+    `const int16_t SPEED_SCALE_FP[3] = {\n${fps.join(',  // ...\n')}\n}`
+  );
+  // Prettier: add comments
+  const fpsCommented = [0,1,2].map(i => {
+    const v = d[`SPEED_SCALE_FP_${i}`];
+    const fp = Math.round(v * FP_SCALE);
+    return `  ${fp}  // ${v.toFixed(2)} × ${FP_SCALE}`;
+  });
+  h = h.replace(
+    /const int16_t\s+SPEED_SCALE_FP\s*\[\s*3\s*\]\s*=\s*\{[^}]+\}/,
+    `const int16_t SPEED_SCALE_FP[3] = {\n${fpsCommented.join(',\n')}\n}`
+  );
+
+  // Patch INPUT_MAX_*_FP256 derived constants in orbit_logic.h
+  for (const [k, range] of Object.entries(FP_AXIS_RANGE)) {
+    const gainFP = Math.round(d[k] * FP_SCALE);
+    const val = `(int32_t)(${range}L * ${gainFP})`;
+    h = h.replace(
+      new RegExp(`(const int32_t\\s+INPUT_MAX_${k}_FP256\\s*=\\s*)\\([^)]+\\)(\\s*;[^\n]*)`),
+      `$1${val};  // ${range} × GAIN_${k.replace('GAIN_','')}_FP`
+    );
+  }
+
+  // Patch SPEED_MODE_CURVE_IDX[3] in .ino
+  const idxVals = [0,1,2].map(i => ` ${d[`SPEED_MODE_CURVE_IDX_${i}`]}`).join(',');
+  s = s.replace(
+    /const uint8_t\s+SPEED_MODE_CURVE_IDX\s*\[[^\]]*\]\s*=\s*\{[^}]+\}/,
+    `const uint8_t SPEED_MODE_CURVE_IDX[SPEED_MODE_COUNT] = {${idxVals} }`
+  );
+
+  return { hPatch: h, inoPatch: s };
+}
+
+function fpRenderSlider(key, decimals) {
+  const el = document.getElementById('fp_' + key);
+  if (!el) return;
+  el.value = fpDraft[key];
+  const v = document.getElementById('fpval_' + key);
+  if (v) v.textContent = Number(fpDraft[key]).toFixed(decimals);
+}
+function fpOnFloat(el, key, decimals) {
+  fpDraft[key] = parseFloat(parseFloat(el.value).toFixed(decimals));
+  const v = document.getElementById('fpval_' + key);
+  if (v) v.textContent = fpDraft[key].toFixed(decimals);
+}
+function fpOnCurveIdx(sel, key) {
+  fpDraft[key] = parseInt(sel.value);
+}
+
+function fpRenderSpeedModeCards() {
+  const names = ['Slow', 'Normal', 'Fast'];
+  document.getElementById('speedModeCards').innerHTML = [0,1,2].map(i => `
+    <div class="speed-card">
+      <div class="speed-card-title">${names[i]}</div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Scale</span><span class="row-val" id="fpval_SPEED_SCALE_FP_${i}">—</span></div>
+        <input type="range" min="0.10" max="1.00" step="0.01" id="fp_SPEED_SCALE_FP_${i}"
+          oninput="fpOnFloat(this,'SPEED_SCALE_FP_${i}',2)">
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Response curve</span></div>
+        <select class="select-full" id="fp_SPEED_MODE_CURVE_IDX_${i}"
+          onchange="fpOnCurveIdx(this,'SPEED_MODE_CURVE_IDX_${i}')">
+          ${Object.entries(FP_CURVE_LABELS).map(([v,lbl]) =>
+            `<option value="${v}">${lbl}</option>`).join('')}
+        </select>
+      </div>
+    </div>`).join('');
+
+  // set values
+  for (let i = 0; i < 3; i++) {
+    fpRenderSlider(`SPEED_SCALE_FP_${i}`, 2);
+    const sel = document.getElementById(`fp_SPEED_MODE_CURVE_IDX_${i}`);
+    if (sel) sel.value = String(fpDraft[`SPEED_MODE_CURVE_IDX_${i}`]);
+  }
+}
+
+function fpRenderGainSliders() {
+  // For FP firmware, the gain sliders drive fpDraft, not tuningDraft.
+  // We override the oninput on all 6 gain range inputs.
+  for (const k of ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ']) {
+    const el = document.getElementById(k);
+    if (!el) continue;
+    el.value = fpDraft[k];
+    const v = document.getElementById('val_' + k);
+    if (v) v.textContent = Number(fpDraft[k]).toFixed(2);
+    el.oninput = function() {
+      fpDraft[k] = parseFloat(parseFloat(this.value).toFixed(2));
+      const vv = document.getElementById('val_' + k);
+      if (vv) vv.textContent = fpDraft[k].toFixed(2);
+    };
+  }
+}
+
+function tnRenderSpeedModeCards() {
+  if (isFixedPoint && fpDraft) {
+    fpRenderSpeedModeCards();
+    return;
+  }
+  const names = ['Slow', 'Normal', 'Fast'];
+  document.getElementById('speedModeCards').innerHTML = [0,1,2].map(i => `
+    <div class="speed-card">
+      <div class="speed-card-title">${names[i]}</div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Scale</span><span class="row-val" id="val_SPEED_MODE_SCALE_${i}">—</span></div>
+        <input type="range" min="0.1" max="1.0" step="0.01" id="SPEED_MODE_SCALE_${i}" oninput="tnOnFloat(this,2)">
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Curve</span><span class="row-val" id="val_SPEED_MODE_RESPONSE_CURVE_${i}">—</span></div>
+        <input type="range" min="0.8" max="3.0" step="0.05" id="SPEED_MODE_RESPONSE_CURVE_${i}" oninput="tnOnFloat(this,2)">
+      </div>
+    </div>`).join('');
+}
+function tnRenderAll() {
+  tnRenderSpeedModeCards();
+  for (const k of TN_INT_KEYS)   tnRenderSlider(k);
+  for (const k of TN_FLOAT_KEYS) tnRenderSlider(k);
+  if (!isFixedPoint || !fpDraft) {
+    for (let i = 0; i < 3; i++) { tnRenderSlider(`SPEED_MODE_SCALE_${i}`); tnRenderSlider(`SPEED_MODE_RESPONSE_CURVE_${i}`); }
+  }
+  for (const k of TN_BOOL_KEYS)  tnRenderBool(k);
+  tnRenderSelect('DEFAULT_SPEED_MODE');
+  // If FP firmware loaded, redirect gain sliders to fpDraft
+  if (isFixedPoint && fpDraft) fpRenderGainSliders();
+}
+
+function tnOnInt(el) {
+  tuningDraft[el.id] = parseInt(el.value);
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = tuningDraft[el.id];
+}
+function tnOnFloat(el, decimals) {
+  tuningDraft[el.id] = parseFloat(parseFloat(el.value).toFixed(decimals));
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = tuningDraft[el.id].toFixed(decimals);
+}
+function tnOnBool(el) {
+  tuningDraft[el.id] = el.checked;
+  const lbl = document.getElementById('lbl_' + el.id);
+  if (lbl) lbl.textContent = el.checked ? 'On' : 'Off';
+}
+function tnOnSelect(el, type) {
+  tuningDraft[el.id] = type === 'int' ? parseInt(el.value) : el.value;
+}
+function tnDiscard() {
+  tuningDraft = JSON.parse(JSON.stringify(tuningBaseline));
+  if (isFixedPoint && fpBaseline) fpDraft = JSON.parse(JSON.stringify(fpBaseline));
+  tnRenderAll();
+  setStatus('Tuning changes discarded.');
+}
+function tnResetDefaults() {
+  if (!confirm('Reset all tuning settings to factory defaults? (Button remapping is not affected.)')) return;
+  tuningDraft = Object.assign({}, TN_DEFAULTS);
+  if (isFixedPoint && fpDraft) fpDraft = Object.assign({}, FP_DEFAULTS);
+  tnRenderAll();
+  setStatus('Tuning values reset to defaults — click "Save all changes" to apply.');
+}
+
+// ============================================================================
+// REMAP MODULE
+// ============================================================================
+const MODIFIERS = {
+  0x00: 'None', 0x01: 'Ctrl', 0x02: 'Shift', 0x03: 'Ctrl + Shift',
+  0x04: 'Alt', 0x05: 'Ctrl + Alt', 0x06: 'Shift + Alt', 0x07: 'Ctrl + Shift + Alt',
+  0x08: '⌘ Cmd', 0x09: '⌘ Cmd + Ctrl', 0x0A: '⌘ Cmd + Shift', 0x0B: '⌘ Cmd + Ctrl + Shift',
+  0x0C: '⌘ Cmd + Alt', 0x0E: '⌘ Cmd + Shift + Alt',
+};
+const MODIFIER_KBD = {
+  0x00: null, 0x01: 'Ctrl', 0x02: 'Shift', 0x03: 'Ctrl+Shift',
+  0x04: 'Alt', 0x05: 'Ctrl+Alt', 0x06: 'Shift+Alt', 0x07: 'Ctrl+Shift+Alt',
+  0x08: '⌘', 0x09: '⌘ Ctrl', 0x0A: '⌘ Shift', 0x0B: '⌘ Ctrl+Shift',
+  0x0C: '⌘ Alt', 0x0E: '⌘ Shift+Alt',
+};
+const KEYS = {
+  0x00: 'None',
+  0x04:'A', 0x05:'B', 0x06:'C', 0x07:'D', 0x08:'E', 0x09:'F',
+  0x0A:'G', 0x0B:'H', 0x0C:'I', 0x0D:'J', 0x0E:'K', 0x0F:'L',
+  0x10:'M', 0x11:'N', 0x12:'O', 0x13:'P', 0x14:'Q', 0x15:'R',
+  0x16:'S', 0x17:'T', 0x18:'U', 0x19:'V', 0x1A:'W', 0x1B:'X',
+  0x1C:'Y', 0x1D:'Z',
+  0x1E:'1', 0x1F:'2', 0x20:'3', 0x21:'4', 0x22:'5',
+  0x23:'6', 0x24:'7', 0x25:'8', 0x26:'9', 0x27:'0',
+  0x28:'Enter', 0x29:'Escape', 0x2A:'Backspace', 0x2B:'Tab', 0x2C:'Space',
+  0x3A:'F1', 0x3B:'F2', 0x3C:'F3', 0x3D:'F4',
+  0x3E:'F5', 0x3F:'F6', 0x40:'F7', 0x41:'F8',
+  0x42:'F9', 0x43:'F10', 0x44:'F11', 0x45:'F12',
+  0x4A:'Home', 0x4B:'Page Up', 0x4C:'Delete',
+  0x4D:'End',  0x4E:'Page Down',
+  0x4F:'Right', 0x50:'Left', 0x51:'Down', 0x52:'Up',
+};
+
+// ---------------------------------------------------------------------------
+// Firmware mapping  (firmware v1.1.0+)
+// Generic per-button shortcut constants — no action indirection. Button
+// index 0..2 maps directly to SLICER_SHORTCUT_*_BUTTON1.._BUTTON3, each with
+// an independent modifier + key constant for short press and long press.
+// Button numbering matches the physical button badges shown in this UI
+// (Button 1, 2, 3) — there is no separate "action" concept to track.
+// ---------------------------------------------------------------------------
+
+const BUTTON_SHORTCUTS = [0, 1, 2].map(i => ({
+  short: {
+    modConst: `SLICER_SHORTCUT_MODIFIER_BUTTON${i + 1}_SHORT`,
+    keyConst: `SLICER_SHORTCUT_KEY_BUTTON${i + 1}_SHORT`,
+  },
+  long: {
+    modConst: `SLICER_SHORTCUT_MODIFIER_BUTTON${i + 1}_LONG`,
+    keyConst: `SLICER_SHORTCUT_KEY_BUTTON${i + 1}_LONG`,
+  },
+}));
+
+const SHORTCUT_CONSTANTS = BUTTON_SHORTCUTS.flatMap(sc => [
+  sc.short.modConst, sc.short.keyConst, sc.long.modConst, sc.long.keyConst,
+]);
+
+function rmGetUint8(text, name) {
+  const m = text.match(new RegExp(`const uint8_t\\s+${name}\\s*=\\s*(0x[0-9A-Fa-f]+)\\s*;`));
+  return m ? parseInt(m[1], 16) : null;
+}
+function rmParseState(text) {
+  const constants = {};
+  for (const name of SHORTCUT_CONSTANTS) constants[name] = rmGetUint8(text, name);
+  return { constants };
+}
+function rmApplyPatch(text, patch) {
+  let out = text;
+  for (const [name, value] of Object.entries(patch.constants)) {
+    if (value === null || value === undefined) continue;
+    const hex = `0x${value.toString(16).toUpperCase().padStart(2,'0')}`;
+    out = out.replace(new RegExp(`(const uint8_t\\s+${name}\\s*=\\s*)0x[0-9A-Fa-f]+(\\s*;)`), `$1${hex}$2`);
+  }
+  return out;
+}
+
+function rmPreviewHtml(modVal, keyVal) {
+  const parts = [];
+  const m = MODIFIER_KBD[modVal];
+  if (m) parts.push(`<kbd>${m}</kbd>`);
+  const k = KEYS[keyVal];
+  if (k && k !== 'None') parts.push(`<kbd>${k}</kbd>`);
+  return parts.length ? parts.join('') : '<kbd>—</kbd>';
+}
+function rmSelectOpts(map, selectedVal) {
+  return Object.entries(map).map(([v, label]) => `<option value="${v}" ${parseInt(v) === selectedVal ? 'selected':''}>${label}</option>`).join('');
+}
+
+function rmRender() {
+  const { constants } = remapDraft;
+
+  document.getElementById('buttonCards').innerHTML = [0, 1, 2].map(bi => {
+    const sc = BUTTON_SHORTCUTS[bi];
+
+    function slotLabel(press) {
+      const { modConst, keyConst } = sc[press];
+      const modVal = constants[modConst] ?? 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const parts = [];
+      const m = MODIFIER_KBD[modVal];
+      if (m) parts.push(m);
+      const k = KEYS[keyVal];
+      if (k && k !== 'None') parts.push(k);
+      return parts.length ? parts.join(' + ') : '—';
+    }
+
+    const summary = `
+      <div class="header-summary">
+        <div class="header-summary-item">
+          <span class="header-summary-label">Short press</span>
+          <span class="header-summary-value" id="hsum-${bi}-short">${slotLabel('short')}</span>
+        </div>
+        <div class="header-summary-item">
+          <span class="header-summary-label">Long press</span>
+          <span class="header-summary-value" id="hsum-${bi}-long">${slotLabel('long')}</span>
+        </div>
+      </div>`;
+
+    const pressRows = ['short', 'long'].map(press => {
+      const { modConst, keyConst } = sc[press];
+      const modVal = constants[modConst] ?? 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const pressId = `${bi}_${press}`;
+
+      const modField = `<div class="field-group mod">
+             <div class="field-label">Modifier</div>
+             <select class="select-full" onchange="rmOnModChange(this,'${modConst}','${pressId}','${keyConst}')">
+               ${rmSelectOpts(MODIFIERS, modVal)}
+             </select>
+           </div>`;
+
+      return `
+        <div class="press-row">
+          <span class="press-tag ${press}">${press === 'short' ? 'Short<br>press' : 'Long<br>press'}</span>
+          <div class="press-fields">
+            ${modField}
+            <div class="field-group">
+              <div class="field-label">Key</div>
+              <select class="select-full" onchange="rmOnKeyChange(this,'${keyConst}','${pressId}','${modConst}')">
+                ${rmSelectOpts(KEYS, keyVal)}
+              </select>
+            </div>
+            <div class="preview" id="prev-${pressId}">${rmPreviewHtml(modVal, keyVal)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="button-card">
+        <div class="button-card-header">
+          <span class="btn-badge">
+            <span class="btn-badge-label">Button</span>
+            <span class="btn-badge-num">${bi + 1}</span>
+          </span>
+          ${summary}
+        </div>
+        ${pressRows}
+      </div>`;
+  }).join('');
+}
+
+function rmOnModChange(sel, modConst, pressId, keyConst) {
+  const modVal = parseInt(sel.value);
+  remapDraft.constants[modConst] = modVal;
+  const keyVal = remapDraft.constants[keyConst] ?? 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = rmPreviewHtml(modVal, keyVal);
+  const bi = parseInt(pressId.split('_')[0]);
+  rmUpdateHeaderSummary(bi);
+}
+function rmOnKeyChange(sel, keyConst, pressId, modConst) {
+  const keyVal = parseInt(sel.value);
+  remapDraft.constants[keyConst] = keyVal;
+  const modVal = remapDraft.constants[modConst] ?? 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = rmPreviewHtml(modVal, keyVal);
+  const bi = parseInt(pressId.split('_')[0]);
+  rmUpdateHeaderSummary(bi);
+}
+function rmUpdateHeaderSummary(bi) {
+  const sc = BUTTON_SHORTCUTS[bi];
+  ['short', 'long'].forEach(press => {
+    const { modConst, keyConst } = sc[press];
+    const modVal = remapDraft.constants[modConst] ?? 0;
+    const keyVal = remapDraft.constants[keyConst] ?? 0;
+    const parts = [];
+    const m = MODIFIER_KBD[modVal];
+    if (m) parts.push(m);
+    const k = KEYS[keyVal];
+    if (k && k !== 'None') parts.push(k);
+    const el = document.getElementById(`hsum-${bi}-${press}`);
+    if (el) el.textContent = parts.length ? parts.join(' + ') : '—';
+  });
+}
+function rmDiscard() {
+  remapDraft = JSON.parse(JSON.stringify(remapBaseline));
+  rmRender();
+  setStatus('Button remapping changes discarded.');
+}
+
+
+// ============================================================================
+// FILE I/O (shared)
+// ============================================================================
+
+function updateFpBanners() {
+  document.getElementById('fpLoadPrompt').style.display  = (isFixedPoint && !fpFileHandle) ? 'block' : 'none';
+  document.getElementById('fpReadyBanner').style.display = (isFixedPoint && fpFileHandle)  ? 'block' : 'none';
+  document.getElementById('fpFileName').style.display    = (isFixedPoint && fpFileHandle)  ? 'inline' : 'none';
+}
+
+async function openFile() {
+  if (!window.showOpenFilePicker) {
+    setStatus('File System Access API not supported — use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Arduino sketch', accept: { 'text/plain': ['.ino'] } }],
+      multiple: false,
+    });
+    const file = await fileHandle.getFile();
+    originalText = await file.text();
+
+    tuningBaseline = tnParseState(originalText);
+    tuningDraft = JSON.parse(JSON.stringify(tuningBaseline));
+
+    const rmState = rmParseState(originalText);
+    remapBaseline = rmState;
+    remapDraft = JSON.parse(JSON.stringify(rmState));
+
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileName').classList.add('loaded');
+    document.getElementById('editor').classList.add('visible');
+    document.getElementById('noFile').style.display = 'none';
+
+    const fwMatch = originalText.match(/Version:\s*([\d.]+)/);
+    const fwBadge = document.getElementById('fwBadge');
+    if (fwMatch) { fwBadge.textContent = 'firmware v' + fwMatch[1]; fwBadge.classList.add('show'); }
+    else fwBadge.classList.remove('show');
+
+    isFixedPoint = /orbit_logic\.h/.test(originalText) || /GAIN_TX_FP/.test(originalText);
+
+    // Reset FP state whenever a new .ino is opened
+    fpFileHandle = null; fpOriginalText = ''; fpBaseline = null; fpDraft = null;
+
+    updateFpBanners();
+    setStatus('');
+    tnRenderAll();
+    rmRender();
+  } catch (e) {
+    if (e.name !== 'AbortError') setStatus('Could not open file: ' + e.message, 'error');
+  }
+}
+
+async function openOrbitLogic() {
+  if (!window.showOpenFilePicker) {
+    setStatus('File System Access API not supported — use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    [fpFileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'orbit_logic header', accept: { 'text/plain': ['.h'] } }],
+      multiple: false,
+    });
+    const file = await fpFileHandle.getFile();
+    if (!file.name.includes('orbit_logic')) {
+      setStatus('Please select orbit_logic.h (the file must contain "orbit_logic" in its name).', 'error');
+      fpFileHandle = null;
+      return;
+    }
+    fpOriginalText = await file.text();
+    fpBaseline  = fpParseFpState(fpOriginalText, originalText);
+    fpDraft     = JSON.parse(JSON.stringify(fpBaseline));
+
+    updateFpBanners();
+    tnRenderAll();   // re-render to swap gain sliders and speed cards to FP mode
+    setStatus('orbit_logic.h loaded — gain and speed sliders now edit the fixed-point values.');
+  } catch (e) {
+    if (e.name !== 'AbortError') setStatus('Could not open orbit_logic.h: ' + e.message, 'error');
+  }
+}
+
+async function writeFpFile(text) {
+  const w = await fpFileHandle.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+async function writeFile(text) {
+  const w = await fileHandle.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+function makeBackup(text, name) {
+  const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
+  const bname = `${name}.backup_${ts}`;
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([text], {type:'text/plain'})),
+    download: bname,
+  });
+  a.click();
+  return bname;
+}
+
+async function onSaveAll() {
+  if (!fileHandle) return;
+  setStatus('Saving…');
+  try {
+    // Always back up the .ino first
+    const backupName = makeBackup(originalText, fileHandle.name);
+
+    // Patch the .ino (all non-FP constants + remap + FP documentation floats if FP)
+    let patchedIno = tnApplyPatch(originalText, tuningDraft);
+    patchedIno = rmApplyPatch(patchedIno, remapDraft);
+
+    if (isFixedPoint && fpFileHandle && fpDraft) {
+      // Also patch orbit_logic.h and sync FP documentation floats in the .ino
+      makeBackup(fpOriginalText, 'orbit_logic.h');
+      const { hPatch, inoPatch } = fpApplyFpPatch(fpOriginalText, patchedIno, fpDraft);
+
+      await writeFpFile(hPatch);
+      fpOriginalText = hPatch;
+      fpBaseline = JSON.parse(JSON.stringify(fpDraft));
+
+      await writeFile(inoPatch);
+      originalText = inoPatch;
+    } else {
+      await writeFile(patchedIno);
+      originalText = patchedIno;
+    }
+
+    tuningBaseline = JSON.parse(JSON.stringify(tuningDraft));
+    remapBaseline  = JSON.parse(JSON.stringify(remapDraft));
+
+    const savedMsg = (isFixedPoint && fpFileHandle)
+      ? `Saved .ino + orbit_logic.h. Backups downloaded.`
+      : `Saved. Backup downloaded: ${backupName}`;
+    setStatus(savedMsg, 'ok');
+  } catch (e) {
+    setStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>

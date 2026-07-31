@@ -216,56 +216,30 @@ const KEYS = {
 };
 
 // ---------------------------------------------------------------------------
-// Firmware mapping  (firmware v1.1.0)
-// Each entry maps a (button index, press type) to the .ino constant names.
-// Each action slot has its own independent modifier constant in the firmware.
-// Every slot shows a modifier dropdown and can be patched independently by
-// this tool without affecting other slots.
+// Firmware mapping  (firmware v1.1.0+)
+// Generic per-button shortcut constants — no action indirection. Button
+// index 0..2 maps directly to SLICER_SHORTCUT_*_BUTTON1.._BUTTON3, each with
+// an independent modifier + key constant for short press and long press.
+// This replaces the old action-based scheme (SLICER_BUTTON_ACTION_HOME/
+// PAINT/TAB_SEND + SLICER_BUTTON_ACTIONS[]) with a direct, generic mapping
+// that doesn't require the user or the tool to know what each shortcut is
+// "for" — it's just "button 1 short press", "button 2 long press", etc.
 // ---------------------------------------------------------------------------
 
-// The firmware assigns actions to buttons via SLICER_BUTTON_ACTIONS[BUTTON_COUNT].
-// Default: button 0 = TAB_SEND, button 1 = PAINT, button 2 = HOME.
-// The key/modifier constants are per-action, not per-button, so we resolve
-// button -> action -> constants at parse time.
-
-const ACTION_CODE = {
-  HOME:  'SLICER_BUTTON_ACTION_HOME',
-  PAINT: 'SLICER_BUTTON_ACTION_PAINT',
-  TAB:   'SLICER_BUTTON_ACTION_TAB_SEND',
-};
-const ACTION_CODE_TO_KEY = Object.fromEntries(Object.entries(ACTION_CODE).map(([k,v])=>[v,k]));
-
-// Per-action shortcut constants (v1.1.0: one modifier constant per slot)
-const ACTION_SHORTCUTS = {
-  HOME:  {
-    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_HOME_SHORT',  keyConst: 'SLICER_SHORTCUT_KEY_0' },
-    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_HOME_LONG',   keyConst: 'SLICER_SHORTCUT_KEY_A' },
+const BUTTON_SHORTCUTS = [0, 1, 2].map(i => ({
+  short: {
+    modConst: `SLICER_SHORTCUT_MODIFIER_BUTTON${i + 1}_SHORT`,
+    keyConst: `SLICER_SHORTCUT_KEY_BUTTON${i + 1}_SHORT`,
   },
-  PAINT: {
-    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_PAINT_SHORT', keyConst: 'SLICER_SHORTCUT_KEY_N' },
-    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_PAINT_LONG',  keyConst: 'SLICER_SHORTCUT_KEY_L' },
+  long: {
+    modConst: `SLICER_SHORTCUT_MODIFIER_BUTTON${i + 1}_LONG`,
+    keyConst: `SLICER_SHORTCUT_KEY_BUTTON${i + 1}_LONG`,
   },
-  TAB: {
-    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_TAB_SHORT',   keyConst: 'SLICER_SHORTCUT_KEY_TAB' },
-    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_TAB_LONG',    keyConst: 'SLICER_SHORTCUT_KEY_G'   },
-  },
-};
+}));
 
-const SHORTCUT_CONSTANTS = [
-  'SLICER_SHORTCUT_MODIFIER_HOME_SHORT',
-  'SLICER_SHORTCUT_MODIFIER_HOME_LONG',
-  'SLICER_SHORTCUT_MODIFIER_PAINT_SHORT',
-  'SLICER_SHORTCUT_MODIFIER_PAINT_LONG',
-  'SLICER_SHORTCUT_MODIFIER_TAB_SHORT',
-  'SLICER_SHORTCUT_MODIFIER_TAB_LONG',
-  'SLICER_SHORTCUT_KEY_0', 'SLICER_SHORTCUT_KEY_A',
-  'SLICER_SHORTCUT_KEY_G', 'SLICER_SHORTCUT_KEY_L',
-  'SLICER_SHORTCUT_KEY_N', 'SLICER_SHORTCUT_KEY_TAB',
-];
-
-// Button 1 (index 0) action is not reassignable via this UI.
-// Its shortcuts are still editable.
-const FIXED_BUTTON = 0;
+const SHORTCUT_CONSTANTS = BUTTON_SHORTCUTS.flatMap(sc => [
+  sc.short.modConst, sc.short.keyConst, sc.long.modConst, sc.long.keyConst,
+]);
 
 // ---------------------------------------------------------------------------
 // State
@@ -285,17 +259,10 @@ function getUint8(text, name) {
   return m ? parseInt(m[1], 16) : null;
 }
 
-function getButtonActions(text) {
-  // Matches both [3] (v1.0.0) and [BUTTON_COUNT] (v1.1.0+)
-  const m = text.match(/const int\s+SLICER_BUTTON_ACTIONS\s*\[\s*(?:3|BUTTON_COUNT)\s*\]\s*=\s*\{([^}]+)\}/);
-  if (!m) return ['TAB', 'PAINT', 'HOME'];
-  return m[1].split(',').map(t => ACTION_CODE_TO_KEY[t.trim()] || t.trim());
-}
-
 function parseState(text) {
   const constants = {};
   for (const name of SHORTCUT_CONSTANTS) constants[name] = getUint8(text, name);
-  return { buttonActions: getButtonActions(text), constants };
+  return { constants };
 }
 
 // ---------------------------------------------------------------------------
@@ -305,22 +272,16 @@ function parseState(text) {
 function applyPatch(text, patch) {
   let out = text;
   for (const [name, value] of Object.entries(patch.constants)) {
+    if (value === null || value === undefined) continue;
     const hex = `0x${value.toString(16).toUpperCase().padStart(2,'0')}`;
     out = out.replace(
       new RegExp(`(const uint8_t\\s+${name}\\s*=\\s*)0x[0-9A-Fa-f]+(\\s*;)`),
       `$1${hex}$2`
     );
   }
-  const vals = patch.buttonActions.map(a => ACTION_CODE[a]).join(',\n  ');
-  // Matches both [3] (v1.0.0) and [BUTTON_COUNT] (v1.1.0+); preserves the
-  // original bracket token so we don't downgrade a v1.1.0 file to [3].
-  out = out.replace(
-    /const int(\s+)SLICER_BUTTON_ACTIONS(\s*\[\s*(?:3|BUTTON_COUNT)\s*\]\s*)=\s*\{[^}]+\};/s,
-    (_, sp, bracket) =>
-      `const int${sp}SLICER_BUTTON_ACTIONS${bracket}= {\n  ${vals}\n};`
-  );
   return out;
 }
+
 
 function makeBackup(text, name) {
   const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15);
@@ -404,23 +365,16 @@ function selectOpts(map, selectedVal) {
     .join('');
 }
 
-function actionSelectOpts(selectedAction) {
-  return Object.keys(ACTION_CODE)
-    .map(a => `<option value="${a}" ${a === selectedAction ? 'selected':''}>${a}</option>`)
-    .join('');
-}
-
 function render() {
-  const { buttonActions, constants } = draft;
+  const { constants } = draft;
 
   document.getElementById('buttonCards').innerHTML = [0, 1, 2].map(bi => {
-    const action = buttonActions[bi];
-    const sc = ACTION_SHORTCUTS[action];
+    const sc = BUTTON_SHORTCUTS[bi];
 
     // Build centered summary: short press key and long press key
     function slotLabel(press) {
       const { modConst, keyConst } = sc[press];
-      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const modVal = constants[modConst] ?? 0;
       const keyVal = constants[keyConst] ?? 0;
       const parts = [];
       const m = MODIFIER_KBD[modVal];
@@ -444,18 +398,16 @@ function render() {
 
     const pressRows = ['short', 'long'].map(press => {
       const { modConst, keyConst } = sc[press];
-      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const modVal = constants[modConst] ?? 0;
       const keyVal = constants[keyConst] ?? 0;
       const pressId = `${bi}_${press}`;
 
-      const modField = modConst
-        ? `<div class="field-group mod">
+      const modField = `<div class="field-group mod">
              <div class="field-label">Modifier</div>
              <select onchange="onModChange(this,'${modConst}','${pressId}','${keyConst}')">
                ${selectOpts(MODIFIERS, modVal)}
              </select>
-           </div>`
-        : '';
+           </div>`;
 
       return `
         <div class="press-row">
@@ -464,7 +416,7 @@ function render() {
             ${modField}
             <div class="field-group">
               <div class="field-label">Key</div>
-              <select onchange="onKeyChange(this,'${keyConst}','${pressId}','${modConst || ''}')">
+              <select onchange="onKeyChange(this,'${keyConst}','${pressId}','${modConst}')">
                 ${selectOpts(KEYS, keyVal)}
               </select>
             </div>
@@ -491,17 +443,11 @@ function render() {
 // Event handlers
 // ---------------------------------------------------------------------------
 
-function onActionChange(sel, bi) {
-  draft.buttonActions[bi] = sel.value;
-  render(); // re-render to show new action's key constants
-}
-
 function onModChange(sel, modConst, pressId, keyConst) {
   const modVal = parseInt(sel.value);
   draft.constants[modConst] = modVal;
   const keyVal = draft.constants[keyConst] ?? 0;
   document.getElementById(`prev-${pressId}`).innerHTML = previewHtml(modVal, keyVal);
-  refreshSharedModPreviews(modConst);
   const bi = parseInt(pressId.split('_')[0]);
   updateHeaderSummary(bi);
 }
@@ -509,33 +455,17 @@ function onModChange(sel, modConst, pressId, keyConst) {
 function onKeyChange(sel, keyConst, pressId, modConst) {
   const keyVal = parseInt(sel.value);
   draft.constants[keyConst] = keyVal;
-  const modVal = modConst ? (draft.constants[modConst] ?? 0) : 0;
+  const modVal = draft.constants[modConst] ?? 0;
   document.getElementById(`prev-${pressId}`).innerHTML = previewHtml(modVal, keyVal);
   const bi = parseInt(pressId.split('_')[0]);
   updateHeaderSummary(bi);
 }
 
-function refreshSharedModPreviews(changedModConst) {
-  draft.buttonActions.forEach((action, bi) => {
-    ['short', 'long'].forEach(press => {
-      const slot = ACTION_SHORTCUTS[action][press];
-      if (slot.modConst === changedModConst) {
-        const pressId = `${bi}_${press}`;
-        const modVal = draft.constants[changedModConst] ?? 0;
-        const keyVal = draft.constants[slot.keyConst] ?? 0;
-        const el = document.getElementById(`prev-${pressId}`);
-        if (el) el.innerHTML = previewHtml(modVal, keyVal);
-      }
-    });
-  });
-}
-
 function updateHeaderSummary(bi) {
-  const action = draft.buttonActions[bi];
-  const sc = ACTION_SHORTCUTS[action];
+  const sc = BUTTON_SHORTCUTS[bi];
   ['short', 'long'].forEach(press => {
     const { modConst, keyConst } = sc[press];
-    const modVal = modConst ? (draft.constants[modConst] ?? 0) : 0;
+    const modVal = draft.constants[modConst] ?? 0;
     const keyVal = draft.constants[keyConst] ?? 0;
     const parts = [];
     const m = MODIFIER_KBD[modVal];
@@ -546,6 +476,7 @@ function updateHeaderSummary(bi) {
     if (el) el.textContent = parts.length ? parts.join(' + ') : 'ΓÇö';
   });
 }
+
 
 async function onSave() {
   setStatus('Saving\u2026');
