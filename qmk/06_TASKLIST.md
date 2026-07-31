@@ -71,8 +71,15 @@ descriptor doesn't bind, stop and fix before writing any math.
 - [ ] `keyboard_post_init_kb()`: LED init, 800 ms wait, `orbit_calibrate_center()`
 - [ ] Calibration sanity check + error flash
 - [ ] Temporary `CONSOLE_ENABLE` debug keymap printing all 8 raw values
-- [ ] **Verify each of the 8 channels maps to the correct physical sensor** — press each
-      joystick individually and confirm the expected `v[]` index moves
+- [ ] **Verify the channel grouping using the 4-joystick matrix geometry:**
+      The four JH16 joysticks are mechanically coupled under the puck — you cannot move them
+      independently. Instead verify by gesture:
+      - At rest: all 8 `v[]` values ≈ 0 (calibration passed, centers in 300–750)
+      - Tilt forward/back: channels 5,7 or 1,3 deviate (transX/transY axes)
+      - Push straight down: all even channels v[0,2,4,6] move same direction (Z push/pull)
+      - Twist clockwise/CCW: all odd channels v[1,3,5,7] move same direction (Z rotation)
+      If the grouping is wrong (e.g. Z push shows on odd channels), swap the pin order in
+      `orbit_analog_pins[]`. Do NOT swap pairs — the pairs must match the joystick geometry.
 - [ ] Confirm centers land in 300–750
 
 **Exit criteria:** all 8 channels read plausible values and the index mapping is confirmed
