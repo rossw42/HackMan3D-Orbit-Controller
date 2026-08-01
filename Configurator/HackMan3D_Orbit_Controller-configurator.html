@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hackman3D Orbit Controller — Configurator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0f1117; color: #e0e0e0;
+  min-height: 100vh; padding: 16px 20px 40px; max-width: 1180px; margin: 0 auto;
+}
+h1 { font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.subtitle { font-size: 12.5px; color: #666; margin-bottom: 14px; }
+.subtitle b { color: #8fa4e0; }
+
+/* ---- Open file bar ---- */
+.open-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+}
+.open-bar .file-name { font-size: 13px; color: #555; flex: 1; min-width: 160px; font-family: "SF Mono","Fira Code",monospace; }
+.open-bar .file-name.loaded { color: #4caf82; }
+.fw-badge {
+  font-size: 11px; font-weight: 700; color: #aac0ff; background: #1e2138;
+  border: 1px solid #33396a; border-radius: 5px; padding: 3px 8px;
+  font-family: "SF Mono","Fira Code",monospace; display: none;
+}
+.fw-badge.show { display: inline-block; }
+
+.btn {
+  padding: 9px 18px; border-radius: 8px; font-size: 13px;
+  font-weight: 500; border: none; cursor: pointer; transition: opacity .15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .35; cursor: default; }
+.btn:not(:disabled):hover { opacity: .82; }
+.btn-primary   { background: #4f7cff; color: #fff; }
+.btn-open      { background: #23263a; color: #ccc; border: 1px solid #333; }
+.btn-secondary { background: #1a1d27; color: #aaa; border: 1px solid #2a2d3a; }
+.btn-danger    { background: #3a1a1a; color: #e07070; border: 1px solid #5a2a2a; }
+.btn-collapse  { background: #1a1d27; color: #778; border: 1px solid #2a2d3a; padding: 6px 12px; font-size: 12px; }
+
+.editor { display: none; }
+.editor.visible { display: block; }
+
+/* ---- Tabs ---- */
+.tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid #2a2d3a;
+}
+.tab-btn {
+  background: transparent; border: none; color: #777;
+  padding: 10px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.tab-btn:hover { color: #ccc; }
+.tab-btn.active { color: #fff; border-bottom-color: #4f7cff; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ---- Section cards ---- */
+.section {
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 10px; margin-bottom: 10px; overflow: hidden;
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid #2a2d3a;
+}
+.section-header:hover { background: #1e2135; }
+.section-title { font-size: 13px; font-weight: 600; color: #c0c8ff; }
+.section-title small { color: #666; font-weight: 400; margin-left: 6px; }
+.section-caret { font-size: 11px; color: #555; transition: transform .15s; }
+.section-caret.open { transform: rotate(90deg); }
+.section-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+.section-body.collapsed { display: none; }
+
+/* ---- Row ---- */
+.row { display: flex; flex-direction: column; gap: 4px; }
+.row-label { display: flex; align-items: baseline; justify-content: space-between; }
+.row-name { font-size: 12px; font-weight: 600; color: #aac0ff; font-family: "SF Mono","Fira Code",monospace; }
+.row-val  { font-size: 13px; font-weight: 700; color: #fff; min-width: 42px; text-align: right; }
+.row-hint { font-size: 11px; color: #c8cfe8; line-height: 1.4; }
+
+/* ---- Slider ---- */
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: #2a2d3a; border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: #4f7cff; cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px; border: none;
+  border-radius: 50%; background: #4f7cff; cursor: pointer;
+}
+
+/* ---- Toggle ---- */
+.toggle-wrap { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+.toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: #2a2d3a; border-radius: 11px; transition: .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s;
+}
+.toggle input:checked + .toggle-slider { background: #4f7cff; }
+.toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+.toggle-label { font-size: 13px; color: #aaa; }
+
+/* ---- Select (shared base) ---- */
+select {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 6px; color: #e0e0e0; font-size: 13px; padding: 6px 10px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  cursor: pointer;
+}
+select:focus { outline: none; border-color: #4f7cff; }
+.select-compact { max-width: 220px; }
+.select-full { width: 100%; padding: 7px 10px; }
+
+/* ---- Speed mode cards ---- */
+.speed-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.speed-card {
+  background: #12141c; border: 1px solid #2a2d3a;
+  border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.speed-card-title { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+.speed-cards .row-name { font-size: 11px; }
+
+/* ---- Two-column grid ---- */
+.col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+@media (max-width: 760px) { .col-grid { grid-template-columns: 1fr; } }
+
+/* ---- Bottom bar ---- */
+hr.divider { border: none; border-top: 1px solid #1e2030; margin: 14px 0; }
+.save-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  position: sticky; bottom: 0; background: #0f1117;
+  padding: 12px 0 4px; border-top: 1px solid #1e2030; margin-top: 16px;
+}
+.status { font-size: 13px; color: #555; flex: 1; min-width: 160px; }
+.status.ok    { color: #4caf82; }
+.status.error { color: #e05555; }
+
+/* ---- Info panel ---- */
+.info-panel {
+  background: #141726; border: 1px solid #262a42; border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 14px; font-size: 12.5px; color: #9aa3c4; line-height: 1.6;
+}
+.info-panel b { color: #c7cff5; }
+.info-panel a { color: #6d8bff; text-decoration: none; }
+.info-panel a:hover { text-decoration: underline; }
+
+.no-file-msg {
+  background: #1a1d27; border: 1px dashed #2a2d3a; border-radius: 10px;
+  padding: 40px 20px; text-align: center; color: #555; font-size: 13px;
+}
+
+/* ---- Button remapper cards ---- */
+.button-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+.button-card {
+  background: #1a1d27; border: 1px solid #2a2d3a;
+  border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
+}
+.button-card-header { display: flex; align-items: stretch; border-bottom: 1px solid #2a2d3a; }
+.btn-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 68px; background: #23263a; flex-shrink: 0; gap: 2px;
+  border-right: 1px solid #2a2d3a; padding: 10px 4px;
+}
+.btn-badge-label { font-size: 8px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .06em; }
+.btn-badge-num { font-size: 22px; font-weight: 700; color: #fff; line-height: 1; }
+.header-summary { flex: 1; display: flex; justify-content: center; gap: 28px; padding: 8px 12px; }
+.header-summary-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.header-summary-label { font-size: 10px; color: #8888aa; text-transform: uppercase; letter-spacing: .06em; }
+.header-summary-value { font-size: 13px; color: #e0e0e0; font-family: "SF Mono","Fira Code",monospace; font-weight: 600; }
+.press-row { display: flex; align-items: stretch; border-bottom: 1px solid #1e2030; }
+.press-row:last-child { border-bottom: none; }
+.press-tag {
+  font-size: 10px; font-weight: 700; flex-shrink: 0; width: 68px; text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; line-height: 1.3; border-right: 1px solid #1e2030; padding: 8px 0;
+}
+.press-tag.short { background: #172b22; color: #6dd9a8; }
+.press-tag.long  { background: #241e10; color: #e0a060; }
+.press-fields { display: flex; gap: 10px; flex: 1; align-items: flex-end; padding: 8px 10px; flex-wrap: wrap; }
+.field-group { flex: 1; min-width: 110px; }
+.field-group.mod { flex: 1.3; min-width: 140px; }
+.field-label { font-size: 11px; color: #555; margin-bottom: 4px; }
+.preview { display: flex; align-items: center; gap: 3px; min-width: 90px; flex-shrink: 0; padding-bottom: 1px; }
+.preview kbd {
+  display: inline-block; background: #23263a; border: 1px solid #333;
+  border-radius: 4px; padding: 2px 6px; font-size: 12px; color: #ccc;
+  white-space: nowrap; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---- Toolbar row ---- */
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Hackman3D Orbit Controller — Configurator</h1>
+<p class="subtitle">Tuning &amp; button remapping for firmware <b>v1.0.0</b> — edits <b>Hackman3D_Orbit_Controller.ino</b> directly. No install, no server, Chrome/Edge only.</p>
+
+<div class="open-bar">
+  <button class="btn btn-open" onclick="openFile()">Open sketch folder</button>
+  <span class="file-name" id="fileName">No folder loaded</span>
+  <span class="fw-badge" id="fwBadge"></span>
+</div>
+
+<div id="noFile" class="no-file-msg">
+  Click <b>Open sketch folder</b> and select the folder containing <code>Hackman3D_Orbit_Controller.ino</code>.<br>
+  Made for the v1.0.0 shipped firmware. Requires Chrome or Edge.
+</div>
+
+<div class="editor" id="editor">
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnTuning" onclick="switchTab('tuning')">⚙ Tuning</button>
+    <button class="tab-btn" id="tabBtnRemap" onclick="switchTab('remap')">⌨ Button Remapping</button>
+  </div>
+
+  <!-- ======================= TUNING TAB ======================= -->
+  <div class="tab-panel active" id="panelTuning">
+
+  <div class="info-panel">
+    <b>Tip:</b> change one setting at a time, save, re-flash, and test before adjusting the next value.
+    Full parameter reference: <a href="../TUNING_GUIDE.md">TUNING_GUIDE.md</a>.
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-collapse" id="btnCollapseAll" onclick="toggleAllSections()">Expand All</button>
+  </div>
+
+  <div class="col-grid">
+  <div class="col-left">
+
+    <!-- Dead zones -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Dead zones</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEADZONE_INPUT</span><span class="row-val" id="val_DEADZONE_INPUT">—</span></div>
+          <input type="range" min="10" max="120" step="1" id="DEADZONE_INPUT" oninput="tnOnInt(this)">
+          <span class="row-hint">Removes electrical noise after reading joysticks. Increase if controller moves by itself; decrease if it needs too much force to react. Range: 30–70, default 40.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEADZONE_OUTPUT</span><span class="row-val" id="val_DEADZONE_OUTPUT">—</span></div>
+          <input type="range" min="10" max="120" step="1" id="DEADZONE_OUTPUT" oninput="tnOnInt(this)">
+          <span class="row-hint">Removes tiny movement values before sending to the computer. Increase if camera drifts after releasing knob; decrease if fine movements feel imprecise. Range: 25–80, default 45.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Smoothing & calibration -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Smoothing &amp; calibration</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">SMOOTH_DIVISOR</span><span class="row-val" id="val_SMOOTH_DIVISOR">—</span></div>
+          <input type="range" min="1" max="12" step="1" id="SMOOTH_DIVISOR" oninput="tnOnInt(this)">
+          <span class="row-hint">Higher = smoother but slower. Lower = faster but less filtered. Range: 3–8, default 5.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">CENTER_SAMPLES</span><span class="row-val" id="val_CENTER_SAMPLES">—</span></div>
+          <input type="range" min="20" max="300" step="10" id="CENTER_SAMPLES" oninput="tnOnInt(this)">
+          <span class="row-hint">Readings used during startup calibration. More = more stable center but longer startup. Range: 50–200, default 100.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Speed & response -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed &amp; response curve</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">MAX_SPEED_SCALE</span><span class="row-val" id="val_MAX_SPEED_SCALE">—</span></div>
+          <input type="range" min="0.10" max="1.00" step="0.01" id="MAX_SPEED_SCALE" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Global speed cap. Decrease if all axes feel too fast; increase if too slow. Range: 0.50–1.00, default 0.70.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">RESPONSE_CURVE</span><span class="row-val" id="val_RESPONSE_CURVE">—</span></div>
+          <input type="range" min="0.8" max="3.0" step="0.05" id="RESPONSE_CURVE" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">How progressively the controller reacts near center. Higher = softer start; lower = more direct. Range: 1.0–2.2, default 1.6.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEFAULT_SPEED_MODE</span><span class="row-val" id="val_DEFAULT_SPEED_MODE">—</span></div>
+          <select class="select-compact" id="DEFAULT_SPEED_MODE" onchange="tnOnSelect(this,'int')">
+            <option value="0">0 — Slow</option>
+            <option value="1">1 — Normal</option>
+            <option value="2">2 — Fast</option>
+          </select>
+          <span class="row-hint">Which speed mode the controller starts in. Default: 1 (normal).</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Translation gains -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Translation sensitivity</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TX <span style="color:#555;font-weight:400;font-size:11px">Left / Right</span></span><span class="row-val" id="val_GAIN_TX">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TX" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TY <span style="color:#555;font-weight:400;font-size:11px">Forward / Backward</span></span><span class="row-val" id="val_GAIN_TY">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 1.3.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_TZ <span style="color:#555;font-weight:400;font-size:11px">Up / Down</span></span><span class="row-val" id="val_GAIN_TZ">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_TZ" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.0–3.0, default 2.3.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rotation gains -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Rotation sensitivity</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RX <span style="color:#555;font-weight:400;font-size:11px">Rotate X</span></span><span class="row-val" id="val_GAIN_RX">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RX" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RY <span style="color:#555;font-weight:400;font-size:11px">Rotate Y</span></span><span class="row-val" id="val_GAIN_RY">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 1.8.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">GAIN_RZ <span style="color:#555;font-weight:400;font-size:11px">Twist Z</span></span><span class="row-val" id="val_GAIN_RZ">—</span></div>
+          <input type="range" min="0.5" max="4.0" step="0.05" id="GAIN_RZ" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Range: 1.2–3.0, default 2.0.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Axis behavior -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Axis behavior</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">ROTATION_PRIORITY</span><span class="row-val" id="val_ROTATION_PRIORITY">—</span></div>
+          <input type="range" min="0.2" max="1.2" step="0.01" id="ROTATION_PRIORITY" oninput="tnOnFloat(this,2)">
+          <span class="row-hint">Lower = rotation gets more priority over translation. Increase if translation cancels too easily. Range: 0.45–1.00, default 0.65.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_DOMINANT_AXIS_FILTER</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_DOMINANT_AXIS_FILTER" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_DOMINANT_AXIS_FILTER">Off</span>
+          </div>
+          <span class="row-hint">When on, only the strongest movement axis is sent. Useful if diagonal movements are too frequent. Default: off.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-left -->
+  <div class="col-right">
+
+    <!-- Speed mode profiles -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed mode profiles</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="speed-cards" id="speedModeCards"></div>
+        <span class="row-hint" style="font-size:11px;">Each mode has its own speed scale and response curve. Mode 0 = slow, 1 = normal, 2 = fast.</span>
+      </div>
+    </div>
+
+    <!-- Speed mode button shortcut -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Speed mode button shortcut</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_BUTTON_COUNT</span><span class="row-val" id="val_MODE_SWITCH_BUTTON_COUNT">—</span></div>
+          <input type="range" min="0" max="3" step="1" id="MODE_SWITCH_BUTTON_COUNT" oninput="tnOnInt(this)">
+          <span class="row-hint">How many buttons must be held to switch speed mode. Set to 0 to disable the shortcut.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_SUPPRESS_BUTTONS</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="MODE_SWITCH_SUPPRESS_BUTTONS" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_MODE_SWITCH_SUPPRESS_BUTTONS">Off</span>
+          </div>
+          <span class="row-hint">When on, the shortcut combo is not sent to the computer as normal button presses. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_CHORD_WINDOW_MS</span><span class="row-val" id="val_MODE_SWITCH_CHORD_WINDOW_MS">—</span></div>
+          <input type="range" min="50" max="600" step="10" id="MODE_SWITCH_CHORD_WINDOW_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Time allowed to complete the speed-mode combo. Range: 150–400, default 250.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">MODE_SWITCH_DEBOUNCE_MS</span><span class="row-val" id="val_MODE_SWITCH_DEBOUNCE_MS">—</span></div>
+          <input type="range" min="100" max="1000" step="25" id="MODE_SWITCH_DEBOUNCE_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Debounce after switching speed mode. Range: 300–700, default 500.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slicer mouse mode -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Slicer mouse mode</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_SLICER_MOUSE_MODE</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_SLICER_MOUSE_MODE" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_SLICER_MOUSE_MODE">Off</span>
+          </div>
+          <span class="row-hint">Enable slicer mouse mode support. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEFAULT_SLICER_MOUSE_MODE</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="DEFAULT_SLICER_MOUSE_MODE" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_DEFAULT_SLICER_MOUSE_MODE">Off</span>
+          </div>
+          <span class="row-hint">Start in slicer mouse mode instead of CAD mode. Default: off.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">ENABLE_SLICER_KEYBOARD_SHORTCUTS</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="ENABLE_SLICER_KEYBOARD_SHORTCUTS" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_ENABLE_SLICER_KEYBOARD_SHORTCUTS">Off</span>
+          </div>
+          <span class="row-hint">Enable keyboard shortcuts in slicer mode. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MOVE_DIVISOR</span><span class="row-val" id="val_SLICER_MOUSE_MOVE_DIVISOR">—</span></div>
+          <input type="range" min="20" max="400" step="5" id="SLICER_MOUSE_MOVE_DIVISOR" oninput="tnOnInt(this)">
+          <span class="row-hint">Controls drag speed. Increase if view moves too fast; decrease if too slow. Default: 120.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_THRESHOLD</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_THRESHOLD">—</span></div>
+          <input type="range" min="10" max="300" step="5" id="SLICER_MOUSE_WHEEL_THRESHOLD" oninput="tnOnInt(this)">
+          <span class="row-hint">Minimum movement before zoom activates. Default: 90.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_FULL_SCALE</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_FULL_SCALE">—</span></div>
+          <input type="range" min="200" max="1200" step="10" id="SLICER_MOUSE_WHEEL_FULL_SCALE" oninput="tnOnInt(this)">
+          <span class="row-hint">Movement magnitude that reaches maximum zoom speed. Default: 700.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MAX_MOVE</span><span class="row-val" id="val_SLICER_MOUSE_MAX_MOVE">—</span></div>
+          <input type="range" min="4" max="30" step="1" id="SLICER_MOUSE_MAX_MOVE" oninput="tnOnInt(this)">
+          <span class="row-hint">Maximum cursor step per report while dragging/panning. Default: 12.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_MAX_WHEEL</span><span class="row-val" id="val_SLICER_MOUSE_MAX_WHEEL">—</span></div>
+          <input type="range" min="1" max="3" step="1" id="SLICER_MOUSE_MAX_WHEEL" oninput="tnOnInt(this)">
+          <span class="row-hint">Maximum wheel step per report while zooming. Default: 1.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS">—</span></div>
+          <input type="range" min="10" max="200" step="5" id="SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Fastest zoom repeat rate. Lower = faster zoom. Default: 45.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS</span><span class="row-val" id="val_SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS">—</span></div>
+          <input type="range" min="30" max="400" step="5" id="SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Slowest zoom repeat rate. Higher = slower zoom. Default: 125.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MOUSE_AUTO_DRAG</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="SLICER_MOUSE_AUTO_DRAG" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_SLICER_MOUSE_AUTO_DRAG">Off</span>
+          </div>
+          <span class="row-hint">Automatically hold mouse button while dragging in slicer mode. Default: on.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_BUTTON_LONG_PRESS_MS</span><span class="row-val" id="val_SLICER_BUTTON_LONG_PRESS_MS">—</span></div>
+          <input type="range" min="100" max="1500" step="25" id="SLICER_BUTTON_LONG_PRESS_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long to hold a button for the long-press action in slicer mode. Default: 650 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MODE_HOLD_MS</span><span class="row-val" id="val_SLICER_MODE_HOLD_MS">—</span></div>
+          <input type="range" min="50" max="1000" step="25" id="SLICER_MODE_HOLD_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How long the CAD/slicer toggle combo must be held before switching. Default: 250 ms.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">SLICER_MODE_DEBOUNCE_MS</span><span class="row-val" id="val_SLICER_MODE_DEBOUNCE_MS">—</span></div>
+          <input type="range" min="100" max="1500" step="25" id="SLICER_MODE_DEBOUNCE_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">Minimum time between two CAD/slicer mode toggles. Default: 500 ms.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Serial debug -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-title">Serial debug output</span>
+        <span class="section-caret">▶</span>
+      </div>
+      <div class="section-body collapsed">
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEBUG_SERIAL</span></div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="DEBUG_SERIAL" onchange="tnOnBool(this)"><span class="toggle-slider"></span></label>
+            <span class="toggle-label" id="lbl_DEBUG_SERIAL">Off</span>
+          </div>
+          <span class="row-hint">Enable serial output for debugging. Keep off during normal use. Default: off.</span>
+        </div>
+        <div class="row">
+          <div class="row-label"><span class="row-name">DEBUG_SERIAL_INTERVAL_MS</span><span class="row-val" id="val_DEBUG_SERIAL_INTERVAL_MS">—</span></div>
+          <input type="range" min="20" max="1000" step="10" id="DEBUG_SERIAL_INTERVAL_MS" oninput="tnOnInt(this)">
+          <span class="row-hint">How often to print debug data. Higher = less output. Default: 100 ms.</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /col-right -->
+  </div><!-- /col-grid -->
+
+  <div class="save-bar">
+    <button class="btn btn-secondary" onclick="tnDiscard()">Discard tuning changes</button>
+    <button class="btn btn-danger" onclick="tnResetDefaults()">Reset tuning to defaults</button>
+  </div>
+
+  </div><!-- /panelTuning -->
+
+  <!-- ======================= REMAP TAB ======================= -->
+  <div class="tab-panel" id="panelRemap">
+
+  <div class="info-panel">
+    <b>Slicer button shortcuts.</b> Each physical button (1, 2, 3) has a short-press and long-press keyboard shortcut
+    active while <b>slicer mouse mode</b> is running. Edit the modifier and key for each slot below.
+    Button actions are assigned via <code>SLICER_BUTTON_ACTIONS[3]</code> in the firmware.
+  </div>
+
+  <div class="button-cards" id="buttonCards"></div>
+
+  <div class="save-bar">
+    <button class="btn btn-secondary" onclick="rmDiscard()">Discard remap changes</button>
+  </div>
+
+  </div><!-- /panelRemap -->
+
+  <hr class="divider">
+
+  <div class="save-bar">
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:#aaa;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="chkBackup" checked style="width:14px;height:14px;cursor:pointer;">
+      Save backup of original alongside it
+    </label>
+    <button class="btn btn-primary" onclick="onSaveAll()">Save all changes to .ino</button>
+    <span class="status" id="status"></span>
+  </div>
+
+</div><!-- /editor -->
+
+
+<script>
+// ============================================================================
+// SHARED STATE
+// ============================================================================
+let fileHandle = null;
+let dirHandle  = null;
+let originalText = '';
+let tuningBaseline = null, tuningDraft = null;
+let remapBaseline  = null, remapDraft  = null;
+
+// ============================================================================
+// TAB SWITCHING
+// ============================================================================
+function switchTab(name) {
+  document.getElementById('tabBtnTuning').classList.toggle('active', name === 'tuning');
+  document.getElementById('tabBtnRemap').classList.toggle('active', name === 'remap');
+  document.getElementById('panelTuning').classList.toggle('active', name === 'tuning');
+  document.getElementById('panelRemap').classList.toggle('active', name === 'remap');
+}
+
+// ============================================================================
+// SECTION COLLAPSE
+// ============================================================================
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const caret = header.querySelector('.section-caret');
+  const collapsed = body.classList.toggle('collapsed');
+  caret.classList.toggle('open', !collapsed);
+  updateCollapseBtn();
+}
+
+function updateCollapseBtn() {
+  const bodies = document.querySelectorAll('#panelTuning .section-body');
+  const anyOpen = Array.from(bodies).some(b => !b.classList.contains('collapsed'));
+  const btn = document.getElementById('btnCollapseAll');
+  if (btn) btn.textContent = anyOpen ? 'Collapse All' : 'Expand All';
+}
+
+function toggleAllSections() {
+  const bodies = document.querySelectorAll('#panelTuning .section-body');
+  const anyOpen = Array.from(bodies).some(b => !b.classList.contains('collapsed'));
+  bodies.forEach(body => {
+    const caret = body.previousElementSibling.querySelector('.section-caret');
+    if (anyOpen) {
+      body.classList.add('collapsed');
+      caret.classList.remove('open');
+    } else {
+      body.classList.remove('collapsed');
+      caret.classList.add('open');
+    }
+  });
+  updateCollapseBtn();
+}
+
+// ============================================================================
+// TUNING MODULE
+// ============================================================================
+const TN_DEFAULTS = {
+  DEADZONE_INPUT: 40, DEADZONE_OUTPUT: 45,
+  SMOOTH_DIVISOR: 5, CENTER_SAMPLES: 100,
+  MAX_SPEED_SCALE: 0.70, RESPONSE_CURVE: 1.6, DEFAULT_SPEED_MODE: 1,
+  GAIN_TX: 1.3, GAIN_TY: 1.3, GAIN_TZ: 2.3, GAIN_RX: 1.8, GAIN_RY: 1.8, GAIN_RZ: 2.0,
+  SPEED_MODE_SCALE_0: 0.50, SPEED_MODE_SCALE_1: 0.70, SPEED_MODE_SCALE_2: 1.00,
+  SPEED_MODE_RESPONSE_CURVE_0: 1.9, SPEED_MODE_RESPONSE_CURVE_1: 1.6, SPEED_MODE_RESPONSE_CURVE_2: 1.3,
+  DEBUG_SERIAL: false, DEBUG_SERIAL_INTERVAL_MS: 100,
+  ROTATION_PRIORITY: 0.65, ENABLE_DOMINANT_AXIS_FILTER: false,
+  ENABLE_SLICER_MOUSE_MODE: true, DEFAULT_SLICER_MOUSE_MODE: false, ENABLE_SLICER_KEYBOARD_SHORTCUTS: true,
+  SLICER_MOUSE_MOVE_DIVISOR: 120, SLICER_MOUSE_WHEEL_THRESHOLD: 90, SLICER_MOUSE_WHEEL_FULL_SCALE: 700,
+  SLICER_MOUSE_MAX_MOVE: 12, SLICER_MOUSE_MAX_WHEEL: 1,
+  SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS: 45, SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS: 125,
+  SLICER_MOUSE_AUTO_DRAG: true, SLICER_BUTTON_LONG_PRESS_MS: 650,
+  SLICER_MODE_HOLD_MS: 250, SLICER_MODE_DEBOUNCE_MS: 500,
+  MODE_SWITCH_BUTTON_COUNT: 3, MODE_SWITCH_SUPPRESS_BUTTONS: true,
+  MODE_SWITCH_CHORD_WINDOW_MS: 250, MODE_SWITCH_DEBOUNCE_MS: 500,
+};
+
+const TN_INT_KEYS = [
+  'DEADZONE_INPUT','DEADZONE_OUTPUT','CENTER_SAMPLES','SMOOTH_DIVISOR',
+  'DEFAULT_SPEED_MODE','DEBUG_SERIAL_INTERVAL_MS',
+  'SLICER_MOUSE_MOVE_DIVISOR','SLICER_MOUSE_WHEEL_THRESHOLD','SLICER_MOUSE_WHEEL_FULL_SCALE',
+  'SLICER_MOUSE_MAX_MOVE','SLICER_MOUSE_MAX_WHEEL',
+  'SLICER_MOUSE_WHEEL_MIN_INTERVAL_MS','SLICER_MOUSE_WHEEL_MAX_INTERVAL_MS','SLICER_BUTTON_LONG_PRESS_MS',
+  'MODE_SWITCH_BUTTON_COUNT','MODE_SWITCH_CHORD_WINDOW_MS','MODE_SWITCH_DEBOUNCE_MS',
+  'SLICER_MODE_HOLD_MS','SLICER_MODE_DEBOUNCE_MS',
+];
+const TN_FLOAT_KEYS = ['GAIN_TX','GAIN_TY','GAIN_TZ','GAIN_RX','GAIN_RY','GAIN_RZ','MAX_SPEED_SCALE','RESPONSE_CURVE','ROTATION_PRIORITY'];
+const TN_BOOL_KEYS  = [
+  'DEBUG_SERIAL','ENABLE_DOMINANT_AXIS_FILTER',
+  'ENABLE_SLICER_MOUSE_MODE','DEFAULT_SLICER_MOUSE_MODE',
+  'ENABLE_SLICER_KEYBOARD_SHORTCUTS','SLICER_MOUSE_AUTO_DRAG','MODE_SWITCH_SUPPRESS_BUTTONS',
+];
+
+function tnGetNum(text, name) {
+  const m = text.match(new RegExp(`const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*([^;]+);`));
+  if (!m) return null;
+  const raw = m[1].trim();
+  if (raw.includes('MAX_SPEED_SCALE') || raw.includes('RESPONSE_CURVE')) return null;
+  return parseFloat(raw);
+}
+function tnGetBool(text, name) {
+  const m = text.match(new RegExp(`const bool\\s+${name}\\s*=\\s*(true|false)\\s*;`));
+  return m ? m[1] === 'true' : null;
+}
+function tnGetArrayVal(text, name, idx) {
+  const m = text.match(new RegExp(`const (?:float|int|uint8_t)\\s+${name}\\[[^\\]]*\\]\\s*=\\s*\\{([^}]+)\\}`));
+  if (!m) return null;
+  const parts = m[1].split(',').map(s => s.trim());
+  if (idx >= parts.length) return null;
+  const v = parts[idx];
+  if (v.includes('MAX_SPEED_SCALE')) return tnGetNum(text, 'MAX_SPEED_SCALE');
+  if (v.includes('RESPONSE_CURVE'))  return tnGetNum(text, 'RESPONSE_CURVE');
+  return parseFloat(v);
+}
+
+function tnParseState(text) {
+  const d = {};
+  for (const k of TN_INT_KEYS)   { const v = tnGetNum(text, k);  d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (const k of TN_FLOAT_KEYS) { const v = tnGetNum(text, k);  d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (const k of TN_BOOL_KEYS)  { const v = tnGetBool(text, k); d[k] = v !== null ? v : TN_DEFAULTS[k]; }
+  for (let i = 0; i < 3; i++) {
+    const sv = tnGetArrayVal(text, 'SPEED_MODE_SCALE', i);
+    const rv = tnGetArrayVal(text, 'SPEED_MODE_RESPONSE_CURVE', i);
+    d[`SPEED_MODE_SCALE_${i}`]          = sv !== null ? sv : TN_DEFAULTS[`SPEED_MODE_SCALE_${i}`];
+    d[`SPEED_MODE_RESPONSE_CURVE_${i}`] = rv !== null ? rv : TN_DEFAULTS[`SPEED_MODE_RESPONSE_CURVE_${i}`];
+  }
+  return d;
+}
+
+function tnPatchNum(text, name, value, isFloat) {
+  const fmt = isFloat ? value.toFixed(2) : String(Math.round(value));
+  return text.replace(new RegExp(`(const (?:int|float|unsigned long)\\s+${name}\\s*=\\s*)[^;]+(;)`), `$1${fmt}$2`);
+}
+function tnPatchBool(text, name, value) {
+  return text.replace(new RegExp(`(const bool\\s+${name}\\s*=\\s*)(?:true|false)(\\s*;)`), `$1${value ? 'true' : 'false'}$2`);
+}
+function tnPatchSpeedModeArray(text, name, vals) {
+  const fmt = vals.map(v => `  ${v.toFixed(2)}`).join(',\n');
+  return text.replace(new RegExp(`(const (?:float|int)\\s+${name}\\[[^\\]]*\\]\\s*=\\s*\\{)[^}]+(\\})`, 's'), `$1\n${fmt}\n$2`);
+}
+
+function tnApplyPatch(text, d) {
+  let out = text;
+  for (const k of TN_INT_KEYS)   out = tnPatchNum(out, k, d[k], false);
+  for (const k of TN_FLOAT_KEYS) out = tnPatchNum(out, k, d[k], true);
+  for (const k of TN_BOOL_KEYS)  out = tnPatchBool(out, k, d[k]);
+  out = tnPatchSpeedModeArray(out, 'SPEED_MODE_SCALE', [d.SPEED_MODE_SCALE_0, d.SPEED_MODE_SCALE_1, d.SPEED_MODE_SCALE_2]);
+  out = tnPatchSpeedModeArray(out, 'SPEED_MODE_RESPONSE_CURVE', [d.SPEED_MODE_RESPONSE_CURVE_0, d.SPEED_MODE_RESPONSE_CURVE_1, d.SPEED_MODE_RESPONSE_CURVE_2]);
+  return out;
+}
+
+function tnIsFloatKey(key) {
+  return TN_FLOAT_KEYS.includes(key) || key.startsWith('SPEED_MODE_SCALE_') || key.startsWith('SPEED_MODE_RESPONSE_CURVE_');
+}
+
+function tnRenderSlider(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = tuningDraft[key];
+  const v = document.getElementById('val_' + key);
+  if (v) v.textContent = tnIsFloatKey(key) ? Number(tuningDraft[key]).toFixed(2) : Math.round(tuningDraft[key]);
+}
+function tnRenderBool(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.checked = tuningDraft[key];
+  const lbl = document.getElementById('lbl_' + key);
+  if (lbl) lbl.textContent = tuningDraft[key] ? 'On' : 'Off';
+}
+function tnRenderSelect(key) {
+  const el = document.getElementById(key);
+  if (!el) return;
+  el.value = String(tuningDraft[key]);
+}
+
+function tnRenderSpeedModeCards() {
+  const names = ['Slow', 'Normal', 'Fast'];
+  document.getElementById('speedModeCards').innerHTML = [0,1,2].map(i => `
+    <div class="speed-card">
+      <div class="speed-card-title">${names[i]}</div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Scale</span><span class="row-val" id="val_SPEED_MODE_SCALE_${i}">—</span></div>
+        <input type="range" min="0.1" max="1.0" step="0.01" id="SPEED_MODE_SCALE_${i}" oninput="tnOnFloat(this,2)">
+      </div>
+      <div class="row">
+        <div class="row-label"><span class="row-name">Curve</span><span class="row-val" id="val_SPEED_MODE_RESPONSE_CURVE_${i}">—</span></div>
+        <input type="range" min="0.8" max="3.0" step="0.05" id="SPEED_MODE_RESPONSE_CURVE_${i}" oninput="tnOnFloat(this,2)">
+      </div>
+    </div>`).join('');
+}
+function tnRenderAll() {
+  tnRenderSpeedModeCards();
+  for (const k of TN_INT_KEYS)   tnRenderSlider(k);
+  for (const k of TN_FLOAT_KEYS) tnRenderSlider(k);
+  for (let i = 0; i < 3; i++) { tnRenderSlider(`SPEED_MODE_SCALE_${i}`); tnRenderSlider(`SPEED_MODE_RESPONSE_CURVE_${i}`); }
+  for (const k of TN_BOOL_KEYS)  tnRenderBool(k);
+  tnRenderSelect('DEFAULT_SPEED_MODE');
+}
+
+function tnOnInt(el) {
+  tuningDraft[el.id] = parseInt(el.value);
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = tuningDraft[el.id];
+}
+function tnOnFloat(el, decimals) {
+  tuningDraft[el.id] = parseFloat(parseFloat(el.value).toFixed(decimals));
+  const v = document.getElementById('val_' + el.id);
+  if (v) v.textContent = tuningDraft[el.id].toFixed(decimals);
+}
+function tnOnBool(el) {
+  tuningDraft[el.id] = el.checked;
+  const lbl = document.getElementById('lbl_' + el.id);
+  if (lbl) lbl.textContent = el.checked ? 'On' : 'Off';
+}
+function tnOnSelect(el, type) {
+  tuningDraft[el.id] = type === 'int' ? parseInt(el.value) : el.value;
+}
+function tnDiscard() {
+  tuningDraft = JSON.parse(JSON.stringify(tuningBaseline));
+  tnRenderAll();
+  setStatus('Tuning changes discarded.');
+}
+function tnResetDefaults() {
+  if (!confirm('Reset all tuning settings to factory defaults? (Button remapping is not affected.)')) return;
+  tuningDraft = Object.assign({}, TN_DEFAULTS);
+  tnRenderAll();
+  setStatus('Tuning values reset to defaults — click "Save all changes" to apply.');
+}
+
+// ============================================================================
+// REMAP MODULE
+// ============================================================================
+const MODIFIERS = {
+  0x00: 'None', 0x01: 'Ctrl', 0x02: 'Shift', 0x03: 'Ctrl + Shift',
+  0x04: 'Alt', 0x05: 'Ctrl + Alt', 0x06: 'Shift + Alt', 0x07: 'Ctrl + Shift + Alt',
+  0x08: '⌘ Cmd', 0x09: '⌘ Cmd + Ctrl', 0x0A: '⌘ Cmd + Shift', 0x0B: '⌘ Cmd + Ctrl + Shift',
+  0x0C: '⌘ Cmd + Alt', 0x0E: '⌘ Cmd + Shift + Alt',
+};
+const MODIFIER_KBD = {
+  0x00: null, 0x01: 'Ctrl', 0x02: 'Shift', 0x03: 'Ctrl+Shift',
+  0x04: 'Alt', 0x05: 'Ctrl+Alt', 0x06: 'Shift+Alt', 0x07: 'Ctrl+Shift+Alt',
+  0x08: '⌘', 0x09: '⌘ Ctrl', 0x0A: '⌘ Shift', 0x0B: '⌘ Ctrl+Shift',
+  0x0C: '⌘ Alt', 0x0E: '⌘ Shift+Alt',
+};
+const KEYS = {
+  0x00: 'None',
+  0x04:'A', 0x05:'B', 0x06:'C', 0x07:'D', 0x08:'E', 0x09:'F',
+  0x0A:'G', 0x0B:'H', 0x0C:'I', 0x0D:'J', 0x0E:'K', 0x0F:'L',
+  0x10:'M', 0x11:'N', 0x12:'O', 0x13:'P', 0x14:'Q', 0x15:'R',
+  0x16:'S', 0x17:'T', 0x18:'U', 0x19:'V', 0x1A:'W', 0x1B:'X',
+  0x1C:'Y', 0x1D:'Z',
+  0x1E:'1', 0x1F:'2', 0x20:'3', 0x21:'4', 0x22:'5',
+  0x23:'6', 0x24:'7', 0x25:'8', 0x26:'9', 0x27:'0',
+  0x28:'Enter', 0x29:'Escape', 0x2A:'Backspace', 0x2B:'Tab', 0x2C:'Space',
+  0x2D:'-', 0x2E:'=', 0x2F:'[', 0x30:']', 0x31:'\\',
+  0x33:';', 0x34:"'", 0x35:'`', 0x36:',', 0x37:'.', 0x38:'/',
+  0x39:'Caps Lock',
+  0x3A:'F1', 0x3B:'F2', 0x3C:'F3', 0x3D:'F4',
+  0x3E:'F5', 0x3F:'F6', 0x40:'F7', 0x41:'F8',
+  0x42:'F9', 0x43:'F10', 0x44:'F11', 0x45:'F12',
+  0x46:'Print Screen', 0x47:'Scroll Lock', 0x48:'Pause',
+  0x49:'Insert',
+  0x4A:'Home', 0x4B:'Page Up', 0x4C:'Delete',
+  0x4D:'End',  0x4E:'Page Down',
+  0x4F:'Right', 0x50:'Left', 0x51:'Down', 0x52:'Up',
+};
+
+// v1.0.0 firmware uses action-based shortcuts.
+// SLICER_BUTTON_ACTIONS[3] maps button index → action code.
+// Per-action shortcuts are defined by shared constants.
+const ACTION_CODE = {
+  HOME:  'SLICER_BUTTON_ACTION_HOME',
+  PAINT: 'SLICER_BUTTON_ACTION_PAINT',
+  TAB:   'SLICER_BUTTON_ACTION_TAB_SEND',
+};
+const ACTION_CODE_TO_KEY = Object.fromEntries(Object.entries(ACTION_CODE).map(([k,v])=>[v,k]));
+
+// modConst: null = no independent modifier (modifier hardcoded to 0 in firmware)
+const ACTION_SHORTCUTS = {
+  HOME:  {
+    short: { modConst: 'SLICER_SHORTCUT_MODIFIER_PRIMARY', keyConst: 'SLICER_SHORTCUT_KEY_0' },
+    long:  { modConst: null,                               keyConst: 'SLICER_SHORTCUT_KEY_A'  },
+  },
+  PAINT: {
+    short: { modConst: null,                               keyConst: 'SLICER_SHORTCUT_KEY_N'   },
+    long:  { modConst: null,                               keyConst: 'SLICER_SHORTCUT_KEY_L'   },
+  },
+  TAB: {
+    short: { modConst: null,                               keyConst: 'SLICER_SHORTCUT_KEY_TAB' },
+    long:  { modConst: 'SLICER_SHORTCUT_MODIFIER_PRIMARY', keyConst: 'SLICER_SHORTCUT_KEY_G'   },
+  },
+};
+
+const SHORTCUT_CONSTANTS = [
+  'SLICER_SHORTCUT_MODIFIER_PRIMARY',
+  'SLICER_SHORTCUT_KEY_0', 'SLICER_SHORTCUT_KEY_A',
+  'SLICER_SHORTCUT_KEY_G', 'SLICER_SHORTCUT_KEY_L',
+  'SLICER_SHORTCUT_KEY_N', 'SLICER_SHORTCUT_KEY_TAB',
+];
+
+function rmGetUint8(text, name) {
+  const m = text.match(new RegExp(`const uint8_t\\s+${name}\\s*=\\s*(0x[0-9A-Fa-f]+)\\s*;`));
+  return m ? parseInt(m[1], 16) : null;
+}
+function rmGetButtonActions(text) {
+  const m = text.match(/const int SLICER_BUTTON_ACTIONS\[3\]\s*=\s*\{([^}]+)\}/);
+  if (!m) return ['TAB', 'PAINT', 'HOME'];
+  return m[1].split(',').map(t => ACTION_CODE_TO_KEY[t.trim()] || t.trim());
+}
+function rmParseState(text) {
+  const constants = {};
+  for (const name of SHORTCUT_CONSTANTS) constants[name] = rmGetUint8(text, name);
+  return { buttonActions: rmGetButtonActions(text), constants };
+}
+function rmApplyPatch(text, patch) {
+  let out = text;
+  for (const [name, value] of Object.entries(patch.constants)) {
+    if (value === null || value === undefined) continue;
+    const hex = `0x${value.toString(16).toUpperCase().padStart(2,'0')}`;
+    out = out.replace(
+      new RegExp(`(const uint8_t\\s+${name}\\s*=\\s*)0x[0-9A-Fa-f]+(\\s*;)`),
+      `$1${hex}$2`
+    );
+  }
+  const vals = patch.buttonActions.map(a => ACTION_CODE[a]).join(',\n  ');
+  out = out.replace(
+    /const int SLICER_BUTTON_ACTIONS\[3\]\s*=\s*\{[^}]+\};/s,
+    `const int SLICER_BUTTON_ACTIONS[3] = {\n  ${vals}\n};`
+  );
+  return out;
+}
+
+function rmPreviewHtml(modVal, keyVal) {
+  const parts = [];
+  const m = MODIFIER_KBD[modVal];
+  if (m) parts.push(`<kbd>${m}</kbd>`);
+  const k = KEYS[keyVal];
+  if (k && k !== 'None') parts.push(`<kbd>${k}</kbd>`);
+  return parts.length ? parts.join('') : '<kbd>—</kbd>';
+}
+function rmSelectOpts(map, selectedVal) {
+  return Object.entries(map).map(([v, label]) =>
+    `<option value="${v}" ${parseInt(v) === selectedVal ? 'selected':''}>${label}</option>`
+  ).join('');
+}
+
+function rmRender() {
+  const { buttonActions, constants } = remapDraft;
+
+  document.getElementById('buttonCards').innerHTML = [0, 1, 2].map(bi => {
+    const action = buttonActions[bi];
+    const sc = ACTION_SHORTCUTS[action] || ACTION_SHORTCUTS['HOME'];
+
+    function slotLabel(press) {
+      const { modConst, keyConst } = sc[press];
+      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const parts = [];
+      const m = MODIFIER_KBD[modVal];
+      if (m) parts.push(m);
+      const k = KEYS[keyVal];
+      if (k && k !== 'None') parts.push(k);
+      return parts.length ? parts.join(' + ') : '—';
+    }
+
+    const summary = `
+      <div class="header-summary">
+        <div class="header-summary-item">
+          <span class="header-summary-label">Short press</span>
+          <span class="header-summary-value" id="hsum-${bi}-short">${slotLabel('short')}</span>
+        </div>
+        <div class="header-summary-item">
+          <span class="header-summary-label">Long press</span>
+          <span class="header-summary-value" id="hsum-${bi}-long">${slotLabel('long')}</span>
+        </div>
+      </div>`;
+
+    const pressRows = ['short', 'long'].map(press => {
+      const { modConst, keyConst } = sc[press];
+      const modVal = modConst ? (constants[modConst] ?? 0) : 0;
+      const keyVal = constants[keyConst] ?? 0;
+      const pressId = `${bi}_${press}`;
+
+      const modField = modConst
+        ? `<div class="field-group mod">
+             <div class="field-label">Modifier</div>
+             <select class="select-full" onchange="rmOnModChange(this,'${modConst}','${pressId}','${keyConst}')">
+               ${rmSelectOpts(MODIFIERS, modVal)}
+             </select>
+           </div>`
+        : `<div class="field-group mod">
+             <div class="field-label">Modifier</div>
+             <select class="select-full" disabled style="opacity:.4;">
+               <option>None (fixed)</option>
+             </select>
+           </div>`;
+
+      return `
+        <div class="press-row">
+          <span class="press-tag ${press}">${press === 'short' ? 'Short<br>press' : 'Long<br>press'}</span>
+          <div class="press-fields">
+            ${modField}
+            <div class="field-group">
+              <div class="field-label">Key</div>
+              <select class="select-full" onchange="rmOnKeyChange(this,'${keyConst}','${pressId}','${modConst || ''}')">
+                ${rmSelectOpts(KEYS, keyVal)}
+              </select>
+            </div>
+            <div class="preview" id="prev-${pressId}">${rmPreviewHtml(modVal, keyVal)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="button-card">
+        <div class="button-card-header">
+          <span class="btn-badge">
+            <span class="btn-badge-label">Button</span>
+            <span class="btn-badge-num">${bi + 1}</span>
+          </span>
+          ${summary}
+        </div>
+        ${pressRows}
+      </div>`;
+  }).join('');
+}
+
+function rmOnActionChange(sel, bi) {
+  remapDraft.buttonActions[bi] = sel.value;
+  rmRender();
+}
+function rmOnModChange(sel, modConst, pressId, keyConst) {
+  const modVal = parseInt(sel.value);
+  remapDraft.constants[modConst] = modVal;
+  const keyVal = remapDraft.constants[keyConst] ?? 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = rmPreviewHtml(modVal, keyVal);
+  // Refresh all previews that share this modifier
+  remapDraft.buttonActions.forEach((action, bi) => {
+    ['short', 'long'].forEach(press => {
+      const slot = ACTION_SHORTCUTS[action] ? ACTION_SHORTCUTS[action][press] : null;
+      if (slot && slot.modConst === modConst) {
+        const pid = `${bi}_${press}`;
+        const kv = remapDraft.constants[slot.keyConst] ?? 0;
+        const el = document.getElementById(`prev-${pid}`);
+        if (el) el.innerHTML = rmPreviewHtml(modVal, kv);
+      }
+    });
+  });
+  rmUpdateHeaderSummary(parseInt(pressId.split('_')[0]));
+}
+function rmOnKeyChange(sel, keyConst, pressId, modConst) {
+  const keyVal = parseInt(sel.value);
+  remapDraft.constants[keyConst] = keyVal;
+  const modVal = modConst ? (remapDraft.constants[modConst] ?? 0) : 0;
+  document.getElementById(`prev-${pressId}`).innerHTML = rmPreviewHtml(modVal, keyVal);
+  rmUpdateHeaderSummary(parseInt(pressId.split('_')[0]));
+}
+function rmUpdateHeaderSummary(bi) {
+  const action = remapDraft.buttonActions[bi];
+  const sc = ACTION_SHORTCUTS[action] || ACTION_SHORTCUTS['HOME'];
+  ['short', 'long'].forEach(press => {
+    const { modConst, keyConst } = sc[press];
+    const modVal = modConst ? (remapDraft.constants[modConst] ?? 0) : 0;
+    const keyVal = remapDraft.constants[keyConst] ?? 0;
+    const parts = [];
+    const m = MODIFIER_KBD[modVal];
+    if (m) parts.push(m);
+    const k = KEYS[keyVal];
+    if (k && k !== 'None') parts.push(k);
+    const el = document.getElementById(`hsum-${bi}-${press}`);
+    if (el) el.textContent = parts.length ? parts.join(' + ') : '—';
+  });
+}
+function rmDiscard() {
+  remapDraft = JSON.parse(JSON.stringify(remapBaseline));
+  rmRender();
+  setStatus('Button remapping changes discarded.');
+}
+
+// ============================================================================
+// FILE I/O
+// ============================================================================
+
+async function openFile() {
+  if (!window.showDirectoryPicker) {
+    setStatus('File System Access API not supported — use Chrome or Edge.', 'error');
+    return;
+  }
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+
+    // Find the .ino file inside the selected folder
+    const inoName = 'Hackman3D_Orbit_Controller.ino';
+    let fh = null;
+    for await (const [name, entry] of dirHandle.entries()) {
+      if (entry.kind === 'file' && name.toLowerCase().endsWith('.ino') && !name.toLowerCase().includes('backup')) {
+        fh = entry;
+        break;
+      }
+    }
+    if (!fh) {
+      setStatus('No .ino sketch file found in the selected folder.', 'error');
+      return;
+    }
+    fileHandle = fh;
+    const file = await fileHandle.getFile();
+    originalText = await file.text();
+
+    tuningBaseline = tnParseState(originalText);
+    tuningDraft = JSON.parse(JSON.stringify(tuningBaseline));
+
+    remapBaseline = rmParseState(originalText);
+    remapDraft = JSON.parse(JSON.stringify(remapBaseline));
+
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileName').classList.add('loaded');
+    document.getElementById('editor').classList.add('visible');
+    document.getElementById('noFile').style.display = 'none';
+
+    const fwMatch = originalText.match(/Version:\s*([\d.]+)/);
+    const fwBadge = document.getElementById('fwBadge');
+    if (fwMatch) { fwBadge.textContent = 'firmware v' + fwMatch[1]; fwBadge.classList.add('show'); }
+    else fwBadge.classList.remove('show');
+
+    setStatus('');
+    tnRenderAll();
+    rmRender();
+    updateCollapseBtn();
+  } catch (e) {
+    if (e.name !== 'AbortError') setStatus('Could not open folder: ' + e.message, 'error');
+  }
+}
+
+async function onSaveAll() {
+  if (!fileHandle) return;
+  setStatus('Saving…');
+  try {
+    let patched = tnApplyPatch(originalText, tuningDraft);
+    patched = rmApplyPatch(patched, remapDraft);
+
+    const wantBackup = document.getElementById('chkBackup').checked;
+
+    if (wantBackup) {
+      // Write backup silently into the same folder using the directory handle
+      const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 13);
+      const baseName = fileHandle.name.replace(/\.ino$/i, '');
+      const backupName = `${baseName}_backup_${ts}.ino`;
+      const backupHandle = await dirHandle.getFileHandle(backupName, { create: true });
+      const bw = await backupHandle.createWritable();
+      await bw.write(originalText);
+      await bw.close();
+    }
+
+    // Write patched content back to the original file in-place
+    const writable = await fileHandle.createWritable();
+    await writable.write(patched);
+    await writable.close();
+
+    originalText = patched;
+    tuningBaseline = JSON.parse(JSON.stringify(tuningDraft));
+    remapBaseline  = JSON.parse(JSON.stringify(remapDraft));
+
+    const msg = wantBackup
+      ? `✓ Saved to ${fileHandle.name} — backup saved alongside it.`
+      : `✓ Saved to ${fileHandle.name}.`;
+    setStatus(msg, 'ok');
+  } catch (e) {
+    setStatus('Save failed: ' + e.message, 'error');
+  }
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>
