@@ -33,7 +33,7 @@ The firmware version badge in the top bar confirms which file was loaded.
 
 ## Tabs
 
-### ⚙ Tuning
+### Tuning
 
 Adjust how the controller feels — dead zones, smoothing, speed, sensitivity, and slicer mouse mode.  
 All settings map directly to `const` values near the top of the `.ino` file.
@@ -58,7 +58,7 @@ See [TUNING_GUIDE.md](../TUNING_GUIDE.md) for a full parameter reference with re
 
 ---
 
-### ⌨ Button Remapping
+### Button Remapping
 
 Assign a keyboard shortcut to each of the three buttons for use in **slicer mouse mode**.
 
