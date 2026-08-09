@@ -171,15 +171,20 @@ then confirmed on hardware via `qmk console` with the `debug` keymap:
 
 ## Phase 7 — Slicer mouse mode
 
-- [ ] `POINTING_DEVICE_DRIVER = custom`, implement `pointing_device_driver_get_report()`
-- [ ] Read from the axis cache — **do not re-run the pipeline** (doc `02` §6)
-- [ ] `scaleMouseAxis` / `scaleMouseWheel` ported
-- [ ] Wheel rate-limited repeat with **inverted sign** (High risk #22)
-- [ ] Zoom exclusivity (returns early)
-- [ ] Auto-drag hold/release
-- [ ] `ry+rz` → mouse X, `rx` → mouse Y
-- [ ] Zero the 6DOF axes + buttons while in slicer mode
-- [ ] Test in a slicer: pan, rotate, zoom all behave as before
+- [x] `POINTING_DEVICE_DRIVER = custom`, implement `pointing_device_driver_get_report()`
+- [x] Read from the axis cache — **do not re-run the pipeline** (doc `02` §6)
+- [x] `scaleMouseAxis` / `scaleMouseWheel` ported
+- [x] Wheel rate-limited repeat with **inverted sign** (High risk #22) (host ✅)
+- [x] Zoom exclusivity (returns early) (host ✅)
+- [x] Auto-drag hold/release (host ✅)
+- [x] `ry+rz` → mouse X, `rx` → mouse Y (host ✅)
+- [x] Zero the 6DOF axes + buttons while in slicer mode
+- [x] Short/long-press shortcuts via `keymap_key_to_keycode()` + `tap_code16_delay()`
+      (650 ms timer, chord suppression) — pulled forward from the Phase 8 plan
+      since the stub had to become real anyway (host ✅)
+- [x] Host gate: `qmk/test/slicer_test.c` compiles the *real* `orbit_slicer.c` —
+      **ALL PASS** (36 checks, 2026-08-09)
+- [ ] Test in a slicer: pan, rotate, zoom all behave as before (**hardware pending**)
 
 **Exit criteria:** slicer mode behaves identically to the Arduino firmware.
 
@@ -375,7 +380,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 4 — Axis pipeline | ✅ **COMPLETE** — golden CSV diff EMPTY, lut_fix_verify_qmk ALL PASS; commit `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **Verified in 3DxWare** — all 6 axes work in the 3Dconnexion view; remaining: Fusion 360 A/B + report-rate measurement |
 | 6 — Buttons/chords/LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware via qmk console |
-| 7 — Slicer mouse | ☐ Not started |
+| 7 — Slicer mouse | 🟡 **Host gate passed** — slicer_test.c ALL PASS (36 checks); builds clean; hardware slicer test pending |
 | 8 — Live keymap (VIA) | ☐ Not started |
 | 9 — Live tuning (VIA menus) | ☐ Not started |
 | 10 — Validation & release | ☐ Not started |

@@ -4,7 +4,7 @@
 
 Branch: `feature/qmk-port`  
 qmk_firmware branch: `hackman3d/multiaxis`  
-Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phase 6 committed on top (see below)
+Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phases 6 and 7 committed on top (see below)
 
 ### Phases complete
 | Phase | Status |
@@ -16,6 +16,7 @@ Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phase 6 committed on t
 | 4 — Axis pipeline | ✅ **both gates passed** — see below. Committed as `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **verified in 3DxWare** — all 6 axes work; Fusion A/B + rate pending |
 | 6 — Buttons, chords, LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware |
+| 7 — Slicer mouse mode | 🟡 **host gate PASSED** (slicer_test.c, 36 checks) — hardware slicer test pending |
 
 ### Phase 4 gates (both passed, 2026-08-09)
 
@@ -112,14 +113,80 @@ S:\QMK_MSYS\usr\bin\bash.exe -lc "cd /d/GitHub/rossw42/HackMan3D-Orbit-Controlle
 
 Note: slicer state is RAM-only until Phase 9 — it resets to off on replug.
 
-## Next up: Phase 7 — Slicer mouse mode
+---
 
-Slicer mouse via `POINTING_DEVICE_DRIVER = custom` /
-`pointing_device_driver_get_report()`, reading the `orbit_axes` cache — never
-re-running the pipeline. Key risks: wheel repeat with **inverted sign** (High
-risk #22), zoom exclusivity (early return), auto-drag hold/release, `ry+rz` →
-mouse X / `rx` → mouse Y, and zeroing the 6DOF axes + buttons while in slicer
-mode. See `qmk/06_TASKLIST.md` Phase 7.
+## Phase 7 — Slicer mouse mode (host gate PASSED, 2026-08-09)
+
+Changed files in `keyboards/hackman3d/orbit_controller/`:
+
+- **`orbit_slicer.c`** (stub → full implementation) — verbatim port of the
+  .ino slicer section (lines 385–531):
+  - `pointing_device_driver_init()` returns **true** (the weak default
+    returns false, which puts pointing_device in INIT_FAILED and no report
+    is ever generated — trap avoided).
+  - `pointing_device_driver_get_report()` == `sendSlicerMouse()`: reads the
+    `orbit_axes` cache (never re-runs the pipeline), `ry+rz` → mouse X /
+    `rx` → mouse Y (rotation), `tx/ty` (translation), zoom exclusivity
+    (|tz| ≥ 90 → drops drag button, wheel only, early return), auto-drag
+    (left button held while panning, released when idle).
+  - `scale_mouse_axis()` / `scale_mouse_wheel()` verbatim: deadzone 45,
+    divisor 120, clamp ±12; wheel threshold 90, full scale 700, repeat
+    interval 125→45 ms, **inverted sign** (tz > 0 scrolls −1, High risk #22).
+  - `orbit_slicer_keys_task()` == `updateSlicerMouseButtons()`: 650 ms
+    short/long press dispatch via `keymap_key_to_keycode(_SLICER /
+    _SLICER_LONG)` + `tap_code16_delay(kc, 20)` — pulled forward from the
+    Phase 8 plan (the keymap layers already existed; with VIA in Phase 8
+    they become live-remappable with zero further slicer changes). Chord
+    active (`orbit_chord_active()`) suppresses/cancels pending presses.
+  - The `_SLICER`/`_SLICER_LONG` layers are pure lookup tables — never
+    `layer_on()`'d (that would make the direct matrix fire keycodes
+    itself, bypassing the 650 ms dispatch).
+- **`orbit_controller.c`** — housekeeping now has the real slicer branch
+  (== .ino:711-720): slicer mode zeroes the 6DOF axes + buttons
+  (`orbit_6dof_send(0,…)` + `orbit_6dof_send_buttons(0)`) and runs
+  `orbit_slicer_keys_task()`; 6DOF mode calls
+  `orbit_slicer_release_buttons()` every scan (drops a held drag on mode
+  exit).
+- `POINTING_DEVICE_DRIVER = custom` / `pointing_device: true` /
+  `POINTING_DEVICE_TASK_THROTTLE_MS 1` were already in place since Phase 2.
+
+Builds clean: `default` 16,028 B (55 %), `debug` 17,792 B (62 %).
+
+### Host verification (gate passed)
+
+`qmk/test/slicer_test.c` + extended `qmk/test/mock/orbit_controller.h`
+compile the *real* `orbit_slicer.c` on the host — **ALL PASS** (36 checks):
+disabled passthrough, deadzone idle, translation/rotation pan mapping +
+min-step + clamp, rotation-vs-translation priority, zoom exclusivity, wheel
+inverted sign + rate-limit (interval scaling, direction flip, latch reset),
+short/long press dispatch, chord suppression, drag release on mode exit.
+
+```powershell
+# from qmk/test (QMK MSYS MinGW64 gcc):
+S:\QMK_MSYS\usr\bin\env.exe MSYSTEM=MINGW64 CHERE_INVOKE=1 S:\QMK_MSYS\usr\bin\bash.exe -lc "cd /d/GitHub/rossw42/HackMan3D-Orbit-Controller/qmk/test && cp /d/GitHub2/qmk_firmware/keyboards/hackman3d/orbit_controller/orbit_slicer.c mock/ && gcc -Wall -Wextra -O2 -I mock -o slicer_test.exe slicer_test.c mock/orbit_slicer.c && ./slicer_test.exe"
+```
+
+`chord_test.c` re-run after the mock header extension: still **ALL PASS**.
+
+### Hardware verification (REMAINING — do this next)
+
+Flash `default` (or `debug` for console) and test in a slicer (Cura/Prusa):
+
+1. Toggle slicer mode (buttons 1+2 held 250 ms, RX LED) → 6DOF stops, mouse starts
+2. Tilt → left-drag pan; twist/rotate → left-drag with `ry+rz`→X / `rx`→Y
+3. Push/pull (tz) → wheel zoom, direction matches the Arduino build (inverted
+   sign is intentional), repeat speeds up with deflection
+4. Zoom while panning → drag released, wheel only (exclusivity)
+5. Short-press each button → Tab / N / Ctrl+0; hold ≥ 650 ms → Shift+Alt+G / L / A
+6. Chords still work in slicer mode and never leak shortcuts
+7. Toggle back → mouse stops (drag released), 6DOF resumes
+
+## Next up: after Phase 7 hardware test → Phase 8 — Live keymap editing (VIA)
+
+`keymaps/viam/` with `VIA_ENABLE = yes`, `DYNAMIC_KEYMAP_LAYER_COUNT 3`,
+`DYNAMIC_KEYMAP_MACRO_COUNT 0`. The slicer dispatch already goes through
+`keymap_key_to_keycode()`, so VIA remaps take effect with no further slicer
+changes. See `qmk/06_TASKLIST.md` Phase 8.
 
 (Phase 5 leftovers folded into Phase 10 validation: Fusion 360 A/B side-by-side,
 report-rate measurement ~125 Hz.)
