@@ -14,7 +14,7 @@ qmk_firmware last commit: `5fa63faa0d` — `hackman3d/orbit_controller: Phase 4+
 | 2 — Minimal keyboard | ✅ flashes, enumerates as `256F:C631`, VIA shows device name |
 | 3 — Analog + calibration | ✅ **hardware-verified**. Committed as `bac6dd8` |
 | 4 — Axis pipeline | ✅ **both gates passed** — see below. Committed as `5fa63faa0d` |
-| 5 — 6DOF output | 🔶 **code complete** — hardware verification pending |
+| 5 — 6DOF output | ✅ **verified in 3DxWare** — all 6 axes work; Fusion A/B + rate pending |
 
 ### Phase 4 gates (both passed, 2026-08-09)
 
@@ -30,7 +30,11 @@ the QMK keyboard folder, so the firmware and the host harness compile the *same*
 Speed mode (default 1) accessors `orbit_speed_mode()` / `orbit_set_speed_mode()` reset
 smoothing on change, ready for Phase 6 chords.
 
-### Phase 5 code (committed, not yet hardware-verified)
+### Phase 5 (hardware-verified in 3DxWare, 2026-08-09)
+
+All 6 axes respond correctly in the 3Dconnexion view. Raw `v[]` rest values stay within
+±14 counts after gestures (inside the input deadzone — normal Hall/mechanical hysteresis),
+channel grouping correct under every gesture. Remaining: Fusion 360 A/B, report rate.
 
 - `orbit_6dof.c` sends Reports 1/2/3 via the tmk_core fork's `send_multiaxis()` /
   `send_multiaxis_buttons()`, unconditionally every scan
@@ -58,19 +62,10 @@ buttons are `KC_NO` since the 6DOF buttons will bypass the keymap entirely.
 
 ---
 
-## Next up: Phase 5 hardware verification
+## Next up: Phase 6 — Buttons, chords, LEDs
 
-Flash `hackman3d_orbit_controller_default.hex` (already built) and:
-
-1. Verify all 6 axes in the 3Dconnexion control panel move in the **same direction** as the
-   Arduino firmware
-2. Side-by-side test in Fusion 360: orbit, pan, zoom
-3. Measure report rate (~125 Hz target)
-
-If an axis direction is wrong, suspect the inversion defaults or the Y/Z swap call site in
-`orbit_controller.c` — do NOT touch the pipeline (it is golden-verified).
-
-## Then: Phase 6 — Buttons, chords, LEDs
+(Phase 5 leftovers to fold into Phase 10 validation: Fusion 360 A/B side-by-side,
+report-rate measurement ~125 Hz.)
 
 - Port `orbit_buttons.h` → `orbit_chords.c` verbatim (debounce, chord detect,
   speed-mode cycle → `orbit_set_speed_mode()`, slicer toggle)

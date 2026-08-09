@@ -120,7 +120,7 @@ itself, not a copy of it.
 
 ---
 
-## Phase 5 — 6DOF output (code complete — hardware verification pending)
+## Phase 5 — 6DOF output (hardware-verified in 3DxWare; Fusion A/B + rate pending)
 
 - [x] `orbit_6dof.c`: assemble and send Reports 1/2/3 (via the tmk_core fork's
       `send_multiaxis()` / `send_multiaxis_buttons()`)
@@ -129,8 +129,10 @@ itself, not a copy of it.
 - [x] Buttons → Report 3 bitmask (mask hardwired to 0 until Phase 6 lands
       `orbit_hid_button_mask()`)
 - [x] Send unconditionally every scan (matches Arduino)
-- [ ] Verify all 6 axes in the 3Dconnexion control panel move in the **same direction** as the
-      Arduino firmware
+- [x] Verify all 6 axes in the 3Dconnexion control panel move in the **same direction** as the
+      Arduino firmware — **VERIFIED on hardware 2026-08-09**: all 6 axes respond correctly in
+      the 3Dconnexion view; raw `v[]` rest values stay within ±14 counts (inside the input
+      deadzone) with correct channel grouping under every gesture
 - [ ] Side-by-side test in Fusion 360: orbit, pan, zoom
 - [ ] Measure report rate (~125 Hz target)
 
@@ -365,7 +367,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
 | 3 — Analog + calibration | ✅ **COMPLETE** — hardware-verified: channel grouping correct, centers in 300–750; commit `bac6dd8` |
 | 4 — Axis pipeline | ✅ **COMPLETE** — golden CSV diff EMPTY, lut_fix_verify_qmk ALL PASS; commit `5fa63faa0d` |
-| 5 — 6DOF output | 🔶 **Code complete** — Reports 1/2/3 wired with the Y/Z swap; awaiting hardware verification (3DxWare directions, Fusion 360 A/B, report rate) |
+| 5 — 6DOF output | ✅ **Verified in 3DxWare** — all 6 axes work in the 3Dconnexion view; remaining: Fusion 360 A/B + report-rate measurement |
 | 6 — Buttons/chords/LEDs | ☐ Not started |
 | 7 — Slicer mouse | ☐ Not started |
 | 8 — Live keymap (VIA) | ☐ Not started |
