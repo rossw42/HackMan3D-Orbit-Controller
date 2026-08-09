@@ -4,7 +4,7 @@
 
 Branch: `feature/qmk-port`  
 qmk_firmware branch: `hackman3d/multiaxis`  
-qmk_firmware last commit: `5fa63faa0d` — `hackman3d/orbit_controller: Phase 4+5 - axis pipeline and 6DOF output`
+Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phase 6 committed on top (see below)
 
 ### Phases complete
 | Phase | Status |
@@ -15,6 +15,7 @@ qmk_firmware last commit: `5fa63faa0d` — `hackman3d/orbit_controller: Phase 4+
 | 3 — Analog + calibration | ✅ **hardware-verified**. Committed as `bac6dd8` |
 | 4 — Axis pipeline | ✅ **both gates passed** — see below. Committed as `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **verified in 3DxWare** — all 6 axes work; Fusion A/B + rate pending |
+| 6 — Buttons, chords, LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware |
 
 ### Phase 4 gates (both passed, 2026-08-09)
 
@@ -41,8 +42,8 @@ channel grouping correct under every gesture. Remaining: Fusion 360 A/B, report 
 - The load-bearing Y/Z swap lives at the call site in `orbit_controller.c`:
   `orbit_6dof_send(rx, rz, ry, tx, tz, ty)` — reproduces Arduino
   `sendCommand(oRX, oRZ, oRY, oTX, oTZ, oTY)` exactly (Trap 2)
-- Button mask hardwired to `0` until Phase 6 lands `orbit_hid_button_mask()`
-- Builds clean: `default` 13,278 B (46 %), `debug` 15,018 B (52 %)
+- Button mask now comes from `orbit_hid_button_mask()` (Phase 6)
+- Builds clean: `default` 14,868 B (51 %), `debug` 16,702 B (58 %)
 
 ### Phase 3 hardware verification (done)
 
@@ -62,16 +63,66 @@ buttons are `KC_NO` since the 6DOF buttons will bypass the keymap entirely.
 
 ---
 
-## Next up: Phase 6 — Buttons, chords, LEDs
+## Phase 6 — COMPLETE, hardware-confirmed (2026-08-09)
 
-(Phase 5 leftovers to fold into Phase 10 validation: Fusion 360 A/B side-by-side,
+New/changed files in `keyboards/hackman3d/orbit_controller/`:
+
+- **`orbit_chords.c`** (new) — verbatim port of `orbit_buttons.h` + the .ino's
+  button section: `read_debounced_buttons()` (10 ms whole-mask stability),
+  subset-match speed chord (all 3), **exact-match** slicer chord (buttons 1+2),
+  `filterModeSwitchButtons` incl. emit-on-release, 250 ms chord window, 500 ms
+  lockouts, 250 ms slicer hold-to-toggle. Exposes `orbit_hid_button_mask()`,
+  `orbit_raw_button_mask()`, `orbit_chord_active()`. Reads pins D1/D0/E6
+  directly (active LOW; direct matrix provides INPUT_PULLUP). EEPROM saves
+  deferred to Phase 9.
+- **`orbit_leds.c`** (new) — non-blocking TX blink mode+1 (80/120 ms), RX 500 ms
+  hold on slicer enable, blocking 6-blink calibration error (boot only).
+- **`orbit_slicer.c`** (new, Phase-6 STUB) — just the enabled flag +
+  no-op `orbit_slicer_keys_task()` / `orbit_slicer_release_buttons()`;
+  full slicer behaviour is Phase 7.
+- **`orbit_controller.c`** — housekeeping now runs `orbit_chords_task()` →
+  `orbit_axes_task()` → 6DOF sends with `orbit_hid_button_mask()` →
+  `orbit_leds_task()`. post_init uses `orbit_leds_init()` +
+  `orbit_leds_signal_speed_mode()`.
+- **`orbit_axes.c`** — calibration error blink now calls
+  `orbit_leds_flash_calibration_error()`.
+- **`keymaps/debug/keymap.c`** — also prints `mode/slicer/btn/hid/chord` every
+  500 ms for hardware chord verification.
+
+Builds clean: `default` 14,868 B (51 %), `debug` 16,702 B (58 %).
+
+### Host verification (gate passed)
+
+`qmk/test/chord_test.c` + `qmk/test/mock/orbit_controller.h` compile the *real*
+`orbit_chords.c` on the host with a simulated clock/buttons — **ALL PASS**
+(25 checks), covering all five tasklist chord tests incl. both negative:
+
+```powershell
+# from qmk/test (uses QMK MSYS gcc):
+S:\QMK_MSYS\usr\bin\bash.exe -lc "cd /d/GitHub/rossw42/HackMan3D-Orbit-Controller/qmk/test && cp /d/GitHub2/qmk_firmware/keyboards/hackman3d/orbit_controller/orbit_chords.c mock/ && gcc -Wall -Wextra -O2 -I mock -o chord_test.exe chord_test.c mock/orbit_chords.c && ./chord_test.exe"
+```
+
+### Hardware confirmation (all 5 passed via `qmk console`, debug keymap)
+
+1. ✅ Each button alone → `btn:1/2/4 hid:1/2/4` after the chord window
+2. ✅ All 3 held → `btn:7 hid:0 chord:1`, mode cycled 1→2→0→1, zero HID leak
+3. ✅ Buttons 1+2 held → `btn:6 hid:0 chord:1`, `slicer:0→1`, RX LED
+4. ✅ All 3 held → `slicer:` value never changed (mutual exclusion)
+5. ✅ Quick tap → emit-on-release blips visible (`btn:1 hid:0` → `btn:1 hid:1`)
+
+Note: slicer state is RAM-only until Phase 9 — it resets to off on replug.
+
+## Next up: Phase 7 — Slicer mouse mode
+
+Slicer mouse via `POINTING_DEVICE_DRIVER = custom` /
+`pointing_device_driver_get_report()`, reading the `orbit_axes` cache — never
+re-running the pipeline. Key risks: wheel repeat with **inverted sign** (High
+risk #22), zoom exclusivity (early return), auto-drag hold/release, `ry+rz` →
+mouse X / `rx` → mouse Y, and zeroing the 6DOF axes + buttons while in slicer
+mode. See `qmk/06_TASKLIST.md` Phase 7.
+
+(Phase 5 leftovers folded into Phase 10 validation: Fusion 360 A/B side-by-side,
 report-rate measurement ~125 Hz.)
-
-- Port `orbit_buttons.h` → `orbit_chords.c` verbatim (debounce, chord detect,
-  speed-mode cycle → `orbit_set_speed_mode()`, slicer toggle)
-- Wire `orbit_hid_button_mask()` into the `orbit_6dof_send_buttons()` call (currently 0)
-- `orbit_leds.c` — TX blink mode+1 non-blocking, RX 500 ms hold
-- See `qmk/06_TASKLIST.md` Phase 6 checklist (five chord tests incl. two negative)
 
 ---
 

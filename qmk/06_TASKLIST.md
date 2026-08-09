@@ -144,22 +144,28 @@ Builds clean: `default` 13,278 B (46 %), `debug` 15,018 B (52 %). Commit `5fa63f
 
 ## Phase 6 — Buttons, chords, LEDs
 
-- [ ] Port `orbit_buttons.h` → `orbit_chords.c` **verbatim** (High risk #20)
-- [ ] `readDebouncedButtons` with `timer_read32()`
-- [ ] `isModeSwitchComboPressed` — subset match
-- [ ] `isSlicerModeComboPressed` — **exact** match (High risk #19)
-- [ ] `filterModeSwitchButtons` incl. the emit-on-release path
-- [ ] `filterSlicerModeButtons`
-- [ ] `updateSpeedMode` — rising edge, 500 ms lockout, `resetSmoothing()`
-- [ ] `updateSlicerMouseMode` — 250 ms hold-to-toggle, 500 ms lockout
-- [ ] `orbit_leds.c` — TX blink `mode+1` non-blocking, RX 500 ms hold
-- [ ] Test: tap each button → registers as joystick button
-- [ ] Test: all 3 → speed mode cycles, LED blinks 1/2/3, no spurious button presses
-- [ ] Test: buttons 1+2 held 250 ms → slicer toggles, RX LED
-- [ ] Test: pressing all 3 does **not** trigger the slicer toggle (mutual exclusion)
-- [ ] Test: press-and-release a chord member alone → button still emitted (emit-on-release)
+- [x] Port `orbit_buttons.h` → `orbit_chords.c` **verbatim** (High risk #20)
+- [x] `readDebouncedButtons` with `timer_read32()`
+- [x] `isModeSwitchComboPressed` — subset match
+- [x] `isSlicerModeComboPressed` — **exact** match (High risk #19)
+- [x] `filterModeSwitchButtons` incl. the emit-on-release path
+- [x] `filterSlicerModeButtons`
+- [x] `updateSpeedMode` — rising edge, 500 ms lockout, `resetSmoothing()`
+- [x] `updateSlicerMouseMode` — 250 ms hold-to-toggle, 500 ms lockout
+- [x] `orbit_leds.c` — TX blink `mode+1` non-blocking, RX 500 ms hold
+- [x] Test: tap each button → registers as joystick button (host + **hardware** ✅)
+- [x] Test: all 3 → speed mode cycles, LED blinks 1/2/3, no spurious button presses (host + **hardware** ✅)
+- [x] Test: buttons 1+2 held 250 ms → slicer toggles, RX LED (host + **hardware** ✅)
+- [x] Test: pressing all 3 does **not** trigger the slicer toggle (mutual exclusion) (host + **hardware** ✅)
+- [x] Test: press-and-release a chord member alone → button still emitted (emit-on-release) (host + **hardware** ✅)
 
-**Exit criteria:** all five chord tests pass, including the two negative tests.
+**Exit criteria MET (2026-08-09):** all five chord tests pass, including the two negative
+tests — first in the host harness (`qmk/test/chord_test.c` compiles the *real*
+`orbit_chords.c` against `qmk/test/mock/orbit_controller.h`: **ALL PASS**, 25 checks),
+then confirmed on hardware via `qmk console` with the `debug` keymap:
+`btn:1/2/4 → hid:1/2/4` per-button; all-3 chord `btn:7 hid:0 chord:1` with mode cycling
+1→2→0→1 and no HID leak; slicer combo `btn:6 hid:0 chord:1` toggled `slicer:0→1`;
+`slicer` unchanged during all-3 holds; quick taps show emit-on-release transitions.
 
 ---
 
@@ -368,7 +374,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 3 — Analog + calibration | ✅ **COMPLETE** — hardware-verified: channel grouping correct, centers in 300–750; commit `bac6dd8` |
 | 4 — Axis pipeline | ✅ **COMPLETE** — golden CSV diff EMPTY, lut_fix_verify_qmk ALL PASS; commit `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **Verified in 3DxWare** — all 6 axes work in the 3Dconnexion view; remaining: Fusion 360 A/B + report-rate measurement |
-| 6 — Buttons/chords/LEDs | ☐ Not started |
+| 6 — Buttons/chords/LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware via qmk console |
 | 7 — Slicer mouse | ☐ Not started |
 | 8 — Live keymap (VIA) | ☐ Not started |
 | 9 — Live tuning (VIA menus) | ☐ Not started |
