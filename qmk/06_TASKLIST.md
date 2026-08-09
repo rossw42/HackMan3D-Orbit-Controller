@@ -45,7 +45,7 @@ ATmega32U4 (6 EPs total). Use button 3 (`QK_BOOT`) to enter the bootloader. See 
 
 ---
 
-## Phase 2 — Minimal QMK keyboard that enumerates
+## Phase 2 — Minimal QMK keyboard that enumerates ✅ COMPLETE
 
 - [x] `keyboards/hackman3d/orbit_controller/keyboard.json` (doc `02` §3)
 - [x] `config.h`, `rules.mk`, `readme.md`
@@ -54,24 +54,24 @@ ATmega32U4 (6 EPs total). Use button 3 (`QK_BOOT`) to enter the bootloader. See 
 - [x] `orbit_controller.h` — pin table, layer enum, module API
 - [x] `orbit_controller.c` — post_init / housekeeping skeleton
 - [x] **Both builds succeed:** `default` = 10,574 B (36 %), `via` = 11,920 B (41 %)
-- [ ] Flash to hardware
-- [ ] Device enumerates as `0x256F:0xC631`, product string "SpaceMouse Pro Wireless (cabled)"
-- [ ] 3DxWare recognises it (axes will read 0 — that's expected at this stage)
-- [ ] Confirm we can still flash back to the Arduino firmware (Caterina round-trip)
+- [x] Flash to hardware
+- [x] Device enumerates as `0x256F:0xC631`, product string "SpaceMouse Pro Wireless (cabled)"
+- [x] 3DxWare recognises it (axes will read 0 — that's expected at this stage)
+- [x] Confirm we can still flash back to the Arduino firmware (Caterina round-trip)
 
 **Exit criteria:** 3DxWare sees the device. This de-risks the whole project — if the
 descriptor doesn't bind, stop and fix before writing any math.
 
 ---
 
-## Phase 3 — Analog reading + calibration
+## Phase 3 — Analog reading + calibration ✅ COMPLETE
 
-- [ ] `ANALOG_DRIVER_REQUIRED = yes`
-- [ ] `orbit_analog_pins[8] = {F6, F7, F4, F5, D7, D4, B5, B4}` (doc `02` §2)
-- [ ] `keyboard_post_init_kb()`: LED init, 800 ms wait, `orbit_calibrate_center()`
-- [ ] Calibration sanity check + error flash
-- [ ] Temporary `CONSOLE_ENABLE` debug keymap printing all 8 raw values
-- [ ] **Verify the channel grouping using the 4-joystick matrix geometry:**
+- [x] `ANALOG_DRIVER_REQUIRED = yes`
+- [x] `orbit_analog_pins[8] = {F6, F7, F4, F5, D7, D4, B5, B4}` (doc `02` §2)
+- [x] `keyboard_post_init_kb()`: LED init, 800 ms wait, `orbit_calibrate_center()`
+- [x] Calibration sanity check + error flash
+- [x] Temporary `CONSOLE_ENABLE` debug keymap printing all 8 raw values
+- [x] **Verify the channel grouping using the 4-joystick matrix geometry:**
       The four JH16 joysticks are mechanically coupled under the puck — you cannot move them
       independently. Instead verify by gesture:
       - At rest: all 8 `v[]` values ≈ 0 (calibration passed, centers in 300–750)
@@ -80,10 +80,15 @@ descriptor doesn't bind, stop and fix before writing any math.
       - Twist clockwise/CCW: all odd channels v[1,3,5,7] move same direction (Z rotation)
       If the grouping is wrong (e.g. Z push shows on odd channels), swap the pin order in
       `orbit_analog_pins[]`. Do NOT swap pairs — the pairs must match the joystick geometry.
-- [ ] Confirm centers land in 300–750
+- [x] Confirm centers land in 300–750
 
-**Exit criteria:** all 8 channels read plausible values and the index mapping is confirmed
-against physical movement. Do not trust the pin table without this check.
+**Exit criteria MET (verified on hardware):** all 8 channels read plausible values and the
+index mapping is confirmed against physical movement — at rest all 8 `v[]` ≈ 0 (centers in
+300–750), tilt gestures deviate the expected channel pairs, Z push/pull moves all **even**
+channels together and Z twist moves all **odd** channels together. The pin table
+`{F6, F7, F4, F5, D7, D4, B5, B4}` is confirmed correct — no reordering needed.
+Committed to `hackman3d/multiaxis` as `bac6dd8` (`hackman3d: Phase 3 - analog reading +
+center calibration`).
 
 ---
 
@@ -346,7 +351,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 0 — Golden reference harness | ✅ **COMPLETE** — `reference_pipeline.c` + `golden.csv` committed |
 | 1 — QMK core fork | ✅ **COMPLETE** — patch committed, descriptor bytes verified, build 12,018 B |
 | 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
-| 3 — Analog + calibration | ✅ **COMPLETE** — `orbit_axes.c`, calibration active, debug keymap printing raw values |
+| 3 — Analog + calibration | ✅ **COMPLETE** — hardware-verified: channel grouping correct, centers in 300–750; commit `bac6dd8` |
 | 4 — Axis pipeline | ☐ Not started |
 | 5 — 6DOF output | ☐ Not started |
 | 6 — Buttons/chords/LEDs | ☐ Not started |
