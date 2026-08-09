@@ -92,37 +92,49 @@ center calibration`).
 
 ---
 
-## Phase 4 — Axis pipeline
+## Phase 4 — Axis pipeline ✅ COMPLETE
 
-- [ ] Port `orbit_logic.h` → `orbit_logic.c/.h` — carry over the **already-applied** curve LUT
-      fix (`uint16_t` tables, see below); do not reintroduce `uint8_t`
-- [ ] Keep `INPUT_MAX_RZ` at `1024 × gain` — the asymmetry vs TZ is correct (finding #4)
-- [ ] Port the pipeline (steps 1–14) into `orbit_axes.c`
-- [ ] Rotation priority — **including the `smoothTX/TY/TZ` reset** (High risk #8)
-- [ ] Z push/pull consensus with negation (`transZ = -zPushPull`)
-- [ ] Z twist consensus with `/2`
-- [ ] Triple output deadzone
-- [ ] Axis inversion, defaults `RX/RY/RZ = true`
-- [ ] Smoothing with the ±1 minimum step
-- [ ] **Run the Phase 0 harness against the ported code — diff must be empty.** Generate the
-      golden CSV from the *fixed* v1.1.x header so the LUT correction is already baked in and
-      the diff is a clean equality check.
-- [ ] Run `qmk/test/lut_fix_verify.c` against the ported `orbit_logic.h` too — it must PASS
+- [x] Port `orbit_logic.h` → `orbit_logic.h` (kept header-only, verbatim) — carried over the
+      **already-applied** curve LUT fix (`uint16_t` tables); `uint8_t` not reintroduced
+- [x] Keep `INPUT_MAX_RZ` at `1024 × gain` — the asymmetry vs TZ is correct (finding #4)
+- [x] Port the pipeline (steps 1–14) — lives in `orbit_pipeline.h` (header-only, so the
+      firmware and the host harness compile the *same* code), driven from
+      `orbit_axes.c::orbit_axes_task()`
+- [x] Rotation priority — **including the `smoothTX/TY/TZ` reset** (High risk #8)
+- [x] Z push/pull consensus with negation (`transZ = -zPushPull`)
+- [x] Z twist consensus with `/2`
+- [x] Triple output deadzone
+- [x] Axis inversion, defaults `RX/RY/RZ = true`
+- [x] Smoothing with the ±1 minimum step
+- [x] **Phase 0 harness vs ported code — diff EMPTY.** `qmk/test/qmk_pipeline.c` compiles
+      the ported headers on the host; output diffed against `qmk/test/golden.csv`: 0 bytes.
+- [x] `qmk/test/lut_fix_verify_qmk.c` against the ported `orbit_logic.h` — **ALL PASS**
 
-**Exit criteria:** golden CSV diff clean. This is the gate that proves no feature was lost.
+**Exit criteria MET:** golden CSV diff clean (verified 2026-08-09, MinGW gcc 15.2.0).
+Committed to `hackman3d/multiaxis` as `5fa63faa0d`.
+
+**Design note:** the plan said `orbit_logic.c/.h`; the port is header-only
+(`orbit_logic.h` + `orbit_pipeline.h`) so the identical translation units are compiled by
+both the AVR firmware and the host harness — the golden diff proves the firmware math
+itself, not a copy of it.
 
 ---
 
-## Phase 5 — 6DOF output
+## Phase 5 — 6DOF output (code complete — hardware verification pending)
 
-- [ ] `orbit_6dof.c`: assemble and send Reports 1/2/3
-- [ ] **The Y/Z swap: `send(oRX, oRZ, oRY, oTX, oTZ, oTY)`** (Inventory Trap 2, High risk #15)
-- [ ] Buttons → Report 3 bitmask
-- [ ] Send unconditionally every scan (matches Arduino)
+- [x] `orbit_6dof.c`: assemble and send Reports 1/2/3 (via the tmk_core fork's
+      `send_multiaxis()` / `send_multiaxis_buttons()`)
+- [x] **The Y/Z swap: `send(oRX, oRZ, oRY, oTX, oTZ, oTY)`** (Inventory Trap 2, High risk
+      #15) — performed at the call site in `orbit_controller.c` housekeeping, commented
+- [x] Buttons → Report 3 bitmask (mask hardwired to 0 until Phase 6 lands
+      `orbit_hid_button_mask()`)
+- [x] Send unconditionally every scan (matches Arduino)
 - [ ] Verify all 6 axes in the 3Dconnexion control panel move in the **same direction** as the
       Arduino firmware
 - [ ] Side-by-side test in Fusion 360: orbit, pan, zoom
 - [ ] Measure report rate (~125 Hz target)
+
+Builds clean: `default` 13,278 B (46 %), `debug` 15,018 B (52 %). Commit `5fa63faa0d`.
 
 **Exit criteria:** a user cannot distinguish it from the Arduino firmware in Fusion 360.
 
@@ -352,8 +364,8 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 1 — QMK core fork | ✅ **COMPLETE** — patch committed, descriptor bytes verified, build 12,018 B |
 | 2 — Minimal keyboard | ✅ **COMPLETE** — flashes, enumerates, VIA shows the name |
 | 3 — Analog + calibration | ✅ **COMPLETE** — hardware-verified: channel grouping correct, centers in 300–750; commit `bac6dd8` |
-| 4 — Axis pipeline | ☐ Not started |
-| 5 — 6DOF output | ☐ Not started |
+| 4 — Axis pipeline | ✅ **COMPLETE** — golden CSV diff EMPTY, lut_fix_verify_qmk ALL PASS; commit `5fa63faa0d` |
+| 5 — 6DOF output | 🔶 **Code complete** — Reports 1/2/3 wired with the Y/Z swap; awaiting hardware verification (3DxWare directions, Fusion 360 A/B, report rate) |
 | 6 — Buttons/chords/LEDs | ☐ Not started |
 | 7 — Slicer mouse | ☐ Not started |
 | 8 — Live keymap (VIA) | ☐ Not started |
