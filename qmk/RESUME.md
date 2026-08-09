@@ -16,7 +16,7 @@ Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phases 6 and 7 committ
 | 4 — Axis pipeline | ✅ **both gates passed** — see below. Committed as `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **verified in 3DxWare** — all 6 axes work; Fusion A/B + rate pending |
 | 6 — Buttons, chords, LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware |
-| 7 — Slicer mouse mode | 🟡 **host gate PASSED** (slicer_test.c, 36 checks) — hardware slicer test pending |
+| 7 — Slicer mouse mode | ✅ **COMPLETE** — host harness ALL PASS (36 checks) + hardware-verified in Bambu Studio |
 
 ### Phase 4 gates (both passed, 2026-08-09)
 
@@ -115,7 +115,7 @@ Note: slicer state is RAM-only until Phase 9 — it resets to off on replug.
 
 ---
 
-## Phase 7 — Slicer mouse mode (host gate PASSED, 2026-08-09)
+## Phase 7 — Slicer mouse mode — COMPLETE, hardware-confirmed (2026-08-09)
 
 Changed files in `keyboards/hackman3d/orbit_controller/`:
 
@@ -168,20 +168,17 @@ S:\QMK_MSYS\usr\bin\env.exe MSYSTEM=MINGW64 CHERE_INVOKE=1 S:\QMK_MSYS\usr\bin\b
 
 `chord_test.c` re-run after the mock header extension: still **ALL PASS**.
 
-### Hardware verification (REMAINING — do this next)
+### Hardware verification (PASSED — Bambu Studio, 2026-08-09)
 
-Flash `default` (or `debug` for console) and test in a slicer (Cura/Prusa):
+Tested with the `debug` keymap in Bambu Studio — everything works: drag-pan,
+inverted wheel zoom, button shortcuts, and chords. `qmk console` output
+confirmed `slicer:1` with `hid:0` throughout (6DOF buttons suppressed in
+slicer mode), live axis data driving the mouse, and chord detection intact
+(`btn:7 hid:0 chord:1` with mode cycling 2→3→0 and zero HID/shortcut leaks).
 
-1. Toggle slicer mode (buttons 1+2 held 250 ms, RX LED) → 6DOF stops, mouse starts
-2. Tilt → left-drag pan; twist/rotate → left-drag with `ry+rz`→X / `rx`→Y
-3. Push/pull (tz) → wheel zoom, direction matches the Arduino build (inverted
-   sign is intentional), repeat speeds up with deflection
-4. Zoom while panning → drag released, wheel only (exclusivity)
-5. Short-press each button → Tab / N / Ctrl+0; hold ≥ 650 ms → Shift+Alt+G / L / A
-6. Chords still work in slicer mode and never leak shortcuts
-7. Toggle back → mouse stops (drag released), 6DOF resumes
+**Phase 7 exit criteria MET.**
 
-## Next up: after Phase 7 hardware test → Phase 8 — Live keymap editing (VIA)
+## Next up: Phase 8 — Live keymap editing (VIA)
 
 `keymaps/viam/` with `VIA_ENABLE = yes`, `DYNAMIC_KEYMAP_LAYER_COUNT 3`,
 `DYNAMIC_KEYMAP_MACRO_COUNT 0`. The slicer dispatch already goes through

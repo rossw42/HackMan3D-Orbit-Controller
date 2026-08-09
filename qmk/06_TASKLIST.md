@@ -184,9 +184,12 @@ then confirmed on hardware via `qmk console` with the `debug` keymap:
       since the stub had to become real anyway (host ✅)
 - [x] Host gate: `qmk/test/slicer_test.c` compiles the *real* `orbit_slicer.c` —
       **ALL PASS** (36 checks, 2026-08-09)
-- [ ] Test in a slicer: pan, rotate, zoom all behave as before (**hardware pending**)
+- [x] Test in a slicer: pan, rotate, zoom all behave as before — **hardware-verified
+      in Bambu Studio (2026-08-09)**: drag-pan, inverted wheel zoom, shortcuts and
+      chords all work; console shows `slicer:1 hid:0` (6DOF buttons suppressed) and
+      chord detection (`btn:7 chord:1`, mode cycling) intact in slicer mode
 
-**Exit criteria:** slicer mode behaves identically to the Arduino firmware.
+**Exit criteria MET:** slicer mode behaves identically to the Arduino firmware.
 
 ---
 
@@ -380,7 +383,7 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 4 — Axis pipeline | ✅ **COMPLETE** — golden CSV diff EMPTY, lut_fix_verify_qmk ALL PASS; commit `5fa63faa0d` |
 | 5 — 6DOF output | ✅ **Verified in 3DxWare** — all 6 axes work in the 3Dconnexion view; remaining: Fusion 360 A/B + report-rate measurement |
 | 6 — Buttons/chords/LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware via qmk console |
-| 7 — Slicer mouse | 🟡 **Host gate passed** — slicer_test.c ALL PASS (36 checks); builds clean; hardware slicer test pending |
+| 7 — Slicer mouse | ✅ **COMPLETE** — host harness ALL PASS (36 checks) + hardware-verified in Bambu Studio |
 | 8 — Live keymap (VIA) | ☐ Not started |
 | 9 — Live tuning (VIA menus) | ☐ Not started |
 | 10 — Validation & release | ☐ Not started |
