@@ -6,6 +6,42 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Calibration Wizard** (`Configurator/calibrate.html`) — a guided WebHID browser tool
+  that walks the user through 13 step-by-step joystick movements (hands-off rest,
+  left/right, forward/back, up/down, twist CW/CCW, and four tilts) to measure
+  per-device sensor ranges, noise floor, and axis directions.
+
+  - Works with the **QMK `viam` keymap** (no firmware changes required beyond flashing
+    `viam` once). Connects to both the SpaceMouse HID interface (live axis readings) and
+    the VIA Raw HID interface (writing calibration to EEPROM).
+  - Auto-captures each movement step by watching **all six axes** simultaneously —
+    handles per-device axis mapping differences where, for example, "push left" may
+    arrive on a different axis than the pipeline default.
+  - Computes a noise-derived `deadzone_input`, per-axis `gain_fp[]` correction factors
+    (×256 fixed-point, clamped 0.25×–4×), and axis inversion suggestions.
+  - **Save to device** writes `deadzone_input`, `gain_fp[0..5]`, and `invert_mask` bits
+    directly to EEPROM via VIA channel 0 + `id_custom_save`, then fires `id_recalibrate`
+    for an immediate center recapture. The saved values are immediately visible in VIA's
+    Axes tab and persist across power cycles via `orbit_config_load()` at boot.
+  - **Factory reset** restores firmware compiled defaults via `id_reset_defaults`.
+  - Includes a "Before you start" prerequisite table with the flash command and a note
+    about returning to Arduino firmware.
+
+- **Firmware v1.2.0** (`FirmwareUpdates/v1.2.0/`) — Arduino firmware upgrade adding a
+  serial calibration protocol for devices staying on the Arduino path (not needed for
+  the QMK wizard, kept as a parallel option):
+  - New `orbit_serial.h`: versioned + XOR-checksummed `OrbitCalibration` EEPROM block
+    at address 16 (compatible with v1.1.0 settings at 0–2), load/save/erase helpers,
+    and clamped fixed-point range-normalization gain math.
+  - Line-based USB-CDC protocol: `I` identify, `R` raw ADC stream (~50 Hz), `C` capture
+    center, `D` dump, `W` write 26-value calibration, `F` factory reset.
+  - Boot prefers stored calibration (fixes "knob bumped during boot" mis-center), falls
+    back to classic startup center capture when no valid block exists.
+  - Runtime deadzone and per-channel gains replace the compile-time constants in the
+    main loop.
+
 ### Fixed
 
 - **Axes no longer go dead at full deflection** (`orbit_logic.h`). The three `CURVE_TABLE_*`

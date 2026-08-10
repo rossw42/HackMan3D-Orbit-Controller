@@ -1,5 +1,56 @@
 # Hackman3D Orbit Controller — Configurator
 
+This folder contains browser-based tools for configuring and calibrating the Orbit Controller. All tools work in Chrome or Edge — no installation required.
+
+| Tool | Purpose |
+|---|---|
+| [`calibrate.html`](./calibrate.html) | **Calibration wizard** — guided per-device sensor calibration (QMK `viam` keymap) |
+| [`HackMan3D_Orbit_Controller-configurator.html`](./HackMan3D_Orbit_Controller-configurator.html) | **Tuning + button remapping** — edit Arduino firmware parameters (v1.0.0 / v1.1.0) |
+| [`tuning.html`](./tuning.html) | Legacy tuning-only tool (superseded by combined configurator) |
+
+---
+
+## Calibration Wizard (`calibrate.html`)
+
+A guided WebHID calibration tool for the **QMK `viam` keymap**. Measures the per-device sensor range, noise floor, and axis directions, then saves the results directly to EEPROM — no re-flashing required.
+
+### Requirements
+
+- **Chrome or Edge** (WebHID API)
+- **QMK `viam` keymap** flashed on the device:
+  ```
+  qmk flash -kb hackman3d/orbit_controller -km viam
+  ```
+  The `default` and `debug` keymaps do not include `orbit_via.c` and will not respond to the wizard's VIA commands.
+
+### How to use
+
+1. Open `calibrate.html` in Chrome or Edge.
+2. Click **Connect device** and select both the SpaceMouse and VIA Raw HID interfaces.
+3. Follow the 13 guided steps:
+   - **Step 1 — Hands off:** keep hands off the knob for 3 seconds; the wizard measures the noise floor, computes a recommended `deadzone_input`, and triggers a fresh center capture on the device.
+   - **Steps 2–13 — Movements:** left, right, forward, back, up, down, twist CW, twist CCW, tilt right, tilt left, tilt forward, tilt back. Each step auto-captures — just make the motion and hold it at the stop. Live axis bars (blue = translation, orange = rotation) show all 6 axes in real time.
+4. Review the captured axis ranges, health badges, gain corrections, and inversion suggestions on the review screen. Adjust the inversion checkboxes if any axis moved the wrong way.
+5. Click **Save to device (EEPROM via VIA)**.
+
+### What is saved
+
+| Parameter | VIA channel / id | Effect |
+|---|---|---|
+| `deadzone_input` | CH 0 / id 1 | Noise deadzone — from measured rest noise × 4 + 8 |
+| `gain_fp[0..5]` | CH 0 / ids 4–9 | TX/TY/TZ/RX/RY/RZ correction gains (×256 fixed-point, 0.25×–4×) |
+| `invert_mask` | CH 0 / ids 10–15 | Axis inversion flags (X Y Z RX RY RZ) |
+
+All three are persisted by `id_custom_save` and loaded by `orbit_config_load()` on every boot. The saved values are immediately visible in VIA's **Axes** tab. Center calibration is always re-captured fresh at boot (100 samples after the 800 ms Hall-sensor settle).
+
+### Returning to Arduino firmware
+
+After calibrating you can return to the Arduino firmware at any time via Arduino IDE (see `qmk/07_FLASHING.md`). Only EEPROM tuning values change; flashing back resets them to compiled defaults.
+
+---
+
+## Combined Configurator (`HackMan3D_Orbit_Controller-configurator.html`)
+
 A single browser-based GUI for **tuning firmware parameters** and **remapping slicer button shortcuts** in `Hackman3D_Orbit_Controller.ino` — no code editing required.
 
 **File:** [`HackMan3D_Orbit_Controller-configurator.html`](./HackMan3D_Orbit_Controller-configurator.html)

@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackMan3D Orbit Controller — Calibration Wizard</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1e2128; --panel2: #262a33;
+    --text: #e8eaed; --muted: #9aa0a6; --accent: #4fc3f7;
+    --ok: #66bb6a; --warn: #ffb74d; --err: #ef5350; --border: #343943;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: .95rem; line-height: 1.5; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  }
+  button {
+    background: var(--accent); color: #06222e; border: none;
+    padding: 10px 22px; border-radius: 6px; font-size: 1rem;
+    font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { background: #3a3f4a; color: var(--muted); cursor: not-allowed; }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--err); color: #fff; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: .8rem; font-weight: 600; background: var(--panel2);
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok   { color: var(--ok);   border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.err  { color: var(--err);  border-color: var(--err); }
+
+  .stepnum { color: var(--accent); font-size: .85rem; font-weight: 700;
+             letter-spacing: .08em; text-transform: uppercase; }
+  .steptitle { font-size: 1.3rem; margin: 4px 0 8px; }
+  .stepdesc { color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  .motion {
+    font-size: 2.6rem; text-align: center; padding: 18px;
+    background: var(--panel2); border-radius: 8px; margin-bottom: 14px;
+    letter-spacing: .05em;
+  }
+  .progressbar {
+    height: 10px; background: var(--panel2); border-radius: 5px;
+    overflow: hidden; margin: 12px 0;
+  }
+  .progressbar > div {
+    height: 100%; width: 0%; background: var(--accent);
+    transition: width .1s linear;
+  }
+  .statusline { color: var(--muted); font-size: .95rem; min-height: 1.4em; }
+  .statusline.ok  { color: var(--ok); }
+  .statusline.err { color: var(--err); }
+
+  /* Live axis bars */
+  .axisbars { display: grid; grid-template-columns: repeat(3, 1fr) repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .abar { text-align: center; }
+  .abar .bar {
+    position: relative; height: 80px; background: var(--panel2);
+    border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .abar .fill {
+    position: absolute; left: 0; width: 100%;
+    opacity: .8; transition: top .05s, height .05s;
+  }
+  .abar .fill.t { background: var(--accent); }
+  .abar .fill.r { background: var(--warn); }
+  .abar .mid { position: absolute; left: 0; width: 100%; height: 1px;
+               top: 50%; background: var(--muted); opacity: .4; }
+  .abar label { font-size: .75rem; color: var(--muted); }
+  .abar .val  { font-size: .75rem; font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .9rem; }
+  th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .flip { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  pre {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px; font-size: .85rem;
+    overflow-x: auto; margin: 10px 0; white-space: pre;
+  }
+  .footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 24px; line-height: 1.6; }
+  .hidden { display: none !important; }
+  .steps-indicator { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--panel2);
+         border: 1px solid var(--border); }
+  .dot.done { background: var(--ok); border-color: var(--ok); }
+  .dot.cur  { background: var(--accent); border-color: var(--accent); }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 3px; font-size: .9em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Orbit Controller — Calibration Wizard</h1>
+  <div class="sub">
+    Guided per-device calibration for QMK firmware with VIA support (<code>viam</code> keymap).
+    Uses <b>WebHID</b> — requires Chrome or Edge.
+    Reads live axis data from the SpaceMouse HID interface to auto-detect movements,
+    then writes corrected <code>deadzone_input</code>, <code>gain_fp[]</code> and <code>invert_mask</code>
+    directly into EEPROM via the VIA custom channel.
+  </div>
+
+  <!-- PREREQ -->
+  <div class="card" id="prereqCard">
+    <div class="steptitle" style="margin-bottom:8px;">Before you start</div>
+    <div class="stepdesc" style="margin-bottom:12px;">
+      This wizard requires the <b>QMK <code>viam</code> keymap</b> to be flashed on the device.
+      The <code>default</code> and <code>debug</code> keymaps do <em>not</em> support live axis
+      readings or VIA parameter writing — the movement steps will not trigger.
+    </div>
+    <table style="margin-bottom:4px;">
+      <tr>
+        <th>I currently have…</th>
+        <th>What to do</th>
+      </tr>
+      <tr>
+        <td>Arduino firmware (v1.x)</td>
+        <td>Flash the QMK <code>viam</code> keymap first (see <code>qmk/07_FLASHING.md</code>):
+          <br><code style="font-size:.85rem;">qmk flash -kb hackman3d/orbit_controller -km viam</code>
+        </td>
+      </tr>
+      <tr>
+        <td>QMK <code>default</code> or <code>debug</code> keymap</td>
+        <td>Re-flash with the <code>viam</code> keymap using the same command above.</td>
+      </tr>
+      <tr>
+        <td>QMK <code>viam</code> keymap ✅</td>
+        <td>You're ready — click <b>Connect device</b> below.</td>
+      </tr>
+    </table>
+    <div class="stepdesc" style="margin-top:10px; font-size:.85rem;">
+      After calibration you can return to the Arduino firmware at any time —
+      see <code>qmk/07_FLASHING.md → Returning to the Arduino firmware</code>.
+      Only EEPROM tuning values are changed; flashing back resets them to compiled defaults.
+    </div>
+  </div>
+
+  <!-- CONNECT -->
+  <div class="card" id="connectCard">
+    <div class="row">
+      <button id="btnConnect">Connect device</button>
+      <span class="badge" id="connBadge">disconnected</span>
+      <span class="badge" id="modeBadge"></span>
+    </div>
+    <div class="statusline" id="connStatus" style="margin-top:10px;">
+      Plug in the Orbit Controller running the <b>viam</b> keymap, then click
+      <b>Connect device</b>.  Two HID interfaces will be requested:
+      the SpaceMouse interface (for live axis readings) and the VIA Raw HID
+      interface (for writing calibration to EEPROM).
+    </div>
+  </div>
+
+  <!-- WIZARD -->
+  <div class="card hidden" id="wizardCard">
+    <div class="steps-indicator" id="stepsDots"></div>
+    <div class="stepnum" id="stepNum"></div>
+    <div class="steptitle" id="stepTitle"></div>
+    <div class="stepdesc" id="stepDesc"></div>
+    <div class="motion" id="stepMotion"></div>
+    <div class="progressbar"><div id="progFill"></div></div>
+    <div class="statusline" id="stepStatus"></div>
+    <div class="row" style="margin-top:14px;">
+      <button id="btnStepAction">Start</button>
+      <button class="secondary" id="btnSkip">Skip step</button>
+      <button class="secondary" id="btnRestart">Restart wizard</button>
+    </div>
+    <!-- Live axis bars -->
+    <div class="axisbars" id="axisbars"></div>
+  </div>
+
+  <!-- REVIEW -->
+  <div class="card hidden" id="reviewCard">
+    <div class="steptitle">Review &amp; save</div>
+    <div class="stepdesc">
+      Check the captured axis ranges below. Weak axes (range &lt; 60 % of the nominal ±512)
+      are flagged. Adjust the inversion checkboxes if any axis moved in the wrong direction.
+      <br>Click <b>Save to device</b> to write the calibration to EEPROM via VIA and
+      trigger a fresh center capture on the device.
+    </div>
+    <table id="axisTable"></table>
+    <div class="stepdesc" id="deadzoneLine" style="margin-top:10px;"></div>
+    <div class="row" style="margin-top:14px;">
+      <button id="btnApply">Save to device (EEPROM via VIA)</button>
+      <button class="danger"    id="btnFactory">Factory reset defaults</button>
+      <button class="secondary" id="btnRestart2">Restart wizard</button>
+    </div>
+    <div class="statusline" id="applyStatus" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="footer">
+    HackMan3D Orbit Controller · Calibration Wizard · QMK/VIA edition<br>
+    Requires the <b>viam</b> keymap (VIA custom menus).
+    Reads live axis data via the SpaceMouse HID interface, writes
+    <code>deadzone_input</code> / <code>gain_fp[]</code> / <code>invert_mask</code>
+    to EEPROM via VIA channel 0 + <code>id_custom_save</code>.
+  </div>
+</div>
+
+<script>
+"use strict";
+
+// ============================================================================
+// VIA Raw HID protocol constants
+// (quantum/via.h in QMK)
+// ============================================================================
+const VIA_SET_VALUE = 0x07;
+const VIA_GET_VALUE = 0x08;
+const VIA_SAVE      = 0x09;
+
+// orbit_via.c channel ids
+const CH_AXES   = 0;
+const CH_SYSTEM = 4;
+
+// channel 0 (ORBIT_CH_AXES) value ids
+const ID_DEADZONE_INPUT  = 1;
+const ID_GAIN_TX         = 4;   // 4..9 = gain_fp[0..5]  TX TY TZ RX RY RZ
+const ID_INVERT_X        = 10;  // 10..15 = bits 0..5
+
+// channel 4 (ORBIT_CH_SYSTEM) value ids
+const ID_RECALIBRATE = 10;
+
+// VIA Raw HID: usage page 0xFF60, usage 0x61
+const VIA_USAGE_PAGE = 0xFF60;
+const VIA_USAGE      = 0x61;
+
+// SpaceMouse HID: usage page 0x01 (Generic Desktop), usage 0x08 (Multi-axis)
+const SPACE_USAGE_PAGE = 0x0001;
+const SPACE_USAGE      = 0x0008;
+
+const NOMINAL_AXIS_RANGE = 512;   // expected peak output per axis (pre-gain, firmware units)
+
+const $ = id => document.getElementById(id);
+
+// ============================================================================
+// HID state
+// ============================================================================
+let viaDevice     = null;   // VIA Raw HID interface
+let spaceDevice   = null;   // SpaceMouse joystick interface
+
+// Latest processed axis values (post-pipeline, from HID reports, int16 LE)
+let latestAxes = { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 };
+let axisListeners = [];   // fns called on each new axis report
+
+// ============================================================================
+// Connect
+// ============================================================================
+async function connect() {
+  if (!("hid" in navigator)) {
+    setConnStatus("WebHID not available — use Chrome or Edge.", "err");
+    return;
+  }
+
+  // Request both interfaces from the same device.
+  // The Orbit Controller presents at least two HID interfaces:
+  //   - Multi-axis controller (SpaceMouse)  usage 0x0001/0x0008
+  //   - VIA Raw HID                         usage 0xFF60/0x61
+  // We request broadly and then sort out which is which.
+  let devices;
+  try {
+    devices = await navigator.hid.requestDevice({
+      filters: [
+        { usagePage: VIA_USAGE_PAGE,   usage: VIA_USAGE },
+        { usagePage: SPACE_USAGE_PAGE, usage: SPACE_USAGE },
+      ]
+    });
+  } catch (e) {
+    setConnStatus("Connection cancelled or failed: " + e.message, "err");
+    return;
+  }
+  if (!devices.length) {
+    setConnStatus("No device selected.", "err");
+    return;
+  }
+
+  // Identify which interface is which by usagePage/usage
+  for (const d of devices) {
+    const coll = d.collections?.[0];
+    if (!coll) continue;
+    if (coll.usagePage === VIA_USAGE_PAGE && coll.usage === VIA_USAGE) {
+      viaDevice = d;
+    } else if (coll.usagePage === SPACE_USAGE_PAGE && coll.usage === SPACE_USAGE) {
+      spaceDevice = d;
+    }
+  }
+
+  // If the browser lumps both interfaces under one device object (common on
+  // composite devices), try to find the right collection by scanning all.
+  if (!viaDevice || !spaceDevice) {
+    for (const d of devices) {
+      for (const coll of (d.collections || [])) {
+        if (!viaDevice && coll.usagePage === VIA_USAGE_PAGE && coll.usage === VIA_USAGE)
+          viaDevice = d;
+        if (!spaceDevice && coll.usagePage === SPACE_USAGE_PAGE && coll.usage === SPACE_USAGE)
+          spaceDevice = d;
+      }
+    }
+  }
+
+  if (!viaDevice) {
+    setConnStatus(
+      "VIA Raw HID interface not found.  Make sure the device is running the " +
+      "<b>viam</b> keymap (VIA_ENABLE must be compiled in).", "err");
+    return;
+  }
+
+  // Open both
+  try {
+    if (!viaDevice.opened)   await viaDevice.open();
+    if (spaceDevice && !spaceDevice.opened) await spaceDevice.open();
+  } catch (e) {
+    setConnStatus("Failed to open HID device: " + e.message, "err");
+    return;
+  }
+
+  // Listen to SpaceMouse reports
+  if (spaceDevice) {
+    spaceDevice.addEventListener("inputreport", onSpaceReport);
+  }
+
+  $("connBadge").textContent = "connected";
+  $("connBadge").className = "badge ok";
+  $("btnConnect").disabled = true;
+
+  // Probe VIA: try to GET deadzone_input; if the device answers it's viam.
+  const probeVal = await viaGet(CH_AXES, ID_DEADZONE_INPUT);
+  if (probeVal !== null) {
+    $("modeBadge").textContent = "viam firmware · VIA ok";
+    $("modeBadge").className = "badge ok";
+    setConnStatus("Connected. Live axis stream active — wizard will start automatically.");
+  } else {
+    $("modeBadge").textContent = "VIA not responding";
+    $("modeBadge").className = "badge warn";
+    setConnStatus(
+      "Device connected but VIA custom channel did not respond. " +
+      "The wizard will guide you through movements and show results, " +
+      "but cannot write to EEPROM. Make sure you are running the <b>viam</b> keymap.", "");
+  }
+
+  startWizard();
+}
+
+// ============================================================================
+// SpaceMouse HID report parsing
+// Report ID 1: translation  [x_lo x_hi y_lo y_hi z_lo z_hi]  int16 LE
+// Report ID 2: rotation     [rx_lo rx_hi ry_lo ry_hi rz_lo rz_hi]  int16 LE
+// ============================================================================
+function int16(lo, hi) {
+  const u = lo | (hi << 8);
+  return u >= 0x8000 ? u - 0x10000 : u;
+}
+
+function onSpaceReport(event) {
+  const d = event.data;
+  if (event.reportId === 1 && d.byteLength >= 6) {
+    latestAxes.tx = int16(d.getUint8(0), d.getUint8(1));
+    latestAxes.ty = int16(d.getUint8(2), d.getUint8(3));
+    latestAxes.tz = int16(d.getUint8(4), d.getUint8(5));
+  } else if (event.reportId === 2 && d.byteLength >= 6) {
+    latestAxes.rx = int16(d.getUint8(0), d.getUint8(1));
+    latestAxes.ry = int16(d.getUint8(2), d.getUint8(3));
+    latestAxes.rz = int16(d.getUint8(4), d.getUint8(5));
+    // rx/rz report completes the frame — emit
+    emitAxes({ ...latestAxes });
+  }
+}
+
+function emitAxes(a) {
+  drawAxes(a);
+  for (const fn of axisListeners) fn(a);
+}
+
+// ============================================================================
+// VIA Raw HID helpers (32-byte reports)
+// Format:  [command, channel, value_id, payload_hi, payload_lo, 0, 0, ...]
+// ============================================================================
+function viaPacket(cmd, channel, valueId, payHi, payLo) {
+  const buf = new Uint8Array(32);
+  buf[0] = cmd;
+  buf[1] = channel;
+  buf[2] = valueId;
+  buf[3] = payHi  || 0;
+  buf[4] = payLo  || 0;
+  return buf;
+}
+
+// Send a SET followed by SAVE for a u16 value
+async function viaSetU16(channel, valueId, value) {
+  if (!viaDevice) return false;
+  const hi = (value >> 8) & 0xFF, lo = value & 0xFF;
+  try {
+    await viaDevice.sendReport(0, viaPacket(VIA_SET_VALUE, channel, valueId, hi, lo));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Send a SET for a toggle/dropdown (1 byte)
+async function viaSetByte(channel, valueId, value) {
+  if (!viaDevice) return false;
+  try {
+    await viaDevice.sendReport(0, viaPacket(VIA_SET_VALUE, channel, valueId, 0, value & 0xFF));
+    return true;
+  } catch (e) { return false; }
+}
+
+// GET: resolves to the u16 value or null on timeout
+function viaGet(channel, valueId) {
+  return new Promise(resolve => {
+    if (!viaDevice) { resolve(null); return; }
+    const timeout = setTimeout(() => {
+      viaDevice.removeEventListener("inputreport", handler);
+      resolve(null);
+    }, 500);
+    function handler(event) {
+      const d = event.data;
+      // VIA GET response: byte[0]=cmd, byte[1]=channel, byte[2]=valueId, [3][4]=value
+      if (d.getUint8(0) === VIA_GET_VALUE &&
+          d.getUint8(1) === channel &&
+          d.getUint8(2) === valueId) {
+        clearTimeout(timeout);
+        viaDevice.removeEventListener("inputreport", handler);
+        resolve((d.getUint8(3) << 8) | d.getUint8(4));
+      }
+    }
+    viaDevice.addEventListener("inputreport", handler);
+    viaDevice.sendReport(0, viaPacket(VIA_GET_VALUE, channel, valueId));
+  });
+}
+
+async function viaSave() {
+  if (!viaDevice) return;
+  try {
+    await viaDevice.sendReport(0, viaPacket(VIA_SAVE, 0, 0));
+  } catch (_) {}
+}
+
+function setConnStatus(msg, cls) {
+  $("connStatus").innerHTML = msg;
+  $("connStatus").className = "statusline" + (cls ? " " + cls : "");
+}
+
+// ============================================================================
+// Live axis bar display
+// Order: TX TY TZ | RX RY RZ
+// ============================================================================
+const AXIS_KEYS = ["tx","ty","tz","rx","ry","rz"];
+const AXIS_LABELS = ["TX ←→","TY ↕","TZ ↑↓","RX tilt","RY tilt","RZ twist"];
+
+function initAxisbars() {
+  const c = $("axisbars");
+  c.innerHTML = "";
+  for (let i = 0; i < 6; i++) {
+    const isR = i >= 3;
+    c.insertAdjacentHTML("beforeend",
+      `<div class="abar">
+         <div class="bar">
+           <div class="mid"></div>
+           <div class="fill ${isR ? 'r' : 't'}" id="abfill${i}"></div>
+         </div>
+         <label>${AXIS_LABELS[i]}</label>
+         <div class="val" id="abval${i}">0</div>
+       </div>`);
+  }
+}
+
+function drawAxes(a) {
+  const vals = [a.tx, a.ty, a.tz, a.rx, a.ry, a.rz];
+  const scale = 350; // post-pipeline values can exceed NOMINAL; scale to bar
+  for (let i = 0; i < 6; i++) {
+    const pct = Math.max(-1, Math.min(1, vals[i] / scale));
+    const fill = $("abfill" + i); if (!fill) return;
+    if (pct >= 0) {
+      fill.style.top    = (50 - pct * 50) + "%";
+      fill.style.height = (pct * 50) + "%";
+    } else {
+      fill.style.top    = "50%";
+      fill.style.height = (-pct * 50) + "%";
+    }
+    $("abval" + i).textContent = vals[i];
+  }
+}
+
+// ============================================================================
+// Wizard steps
+// axis: which latestAxes key to watch for movement detection
+// dir:  expected sign of that axis when the user performs the motion correctly
+//       (used to suggest inversion if the sign is wrong)
+// ============================================================================
+const STEPS = [
+  { id: "rest",
+    title: "Hands off — rest capture",
+    motion: "🚫✋",
+    desc:  "Do NOT touch the controller for 3 seconds. The wizard " +
+           "measures the noise floor to compute the recommended input deadzone, " +
+           "then triggers a fresh center calibration on the device.",
+    axis: null, dir: 0, seconds: 3 },
+
+  { id: "left",     title: "Push LEFT and hold",              motion: "⬅️",
+    desc: "Slide the knob fully to the LEFT and hold at the stop.",
+    axis: "tx", dir: -1 },
+  { id: "right",    title: "Push RIGHT and hold",             motion: "➡️",
+    desc: "Slide the knob fully to the RIGHT and hold at the stop.",
+    axis: "tx", dir: +1 },
+  { id: "forward",  title: "Push FORWARD (away) and hold",    motion: "⬆️",
+    desc: "Slide the knob fully AWAY from you and hold.",
+    axis: "ty", dir: +1 },
+  { id: "back",     title: "Pull BACK (toward you) and hold", motion: "⬇️",
+    desc: "Slide the knob fully TOWARD you and hold.",
+    axis: "ty", dir: -1 },
+  { id: "up",       title: "LIFT UP and hold",                motion: "🔼",
+    desc: "Pull the knob straight UP and hold.",
+    axis: "tz", dir: +1 },
+  { id: "down",     title: "PRESS DOWN and hold",             motion: "🔽",
+    desc: "Press the knob straight DOWN and hold.",
+    axis: "tz", dir: -1 },
+  { id: "twistcw",  title: "TWIST CLOCKWISE and hold",        motion: "🔃 CW",
+    desc: "Twist the knob clockwise (viewed from above) and hold at the stop.",
+    axis: "rz", dir: +1 },
+  { id: "twistccw", title: "TWIST COUNTER-CLOCKWISE and hold",motion: "🔄 CCW",
+    desc: "Twist the knob counter-clockwise and hold at the stop.",
+    axis: "rz", dir: -1 },
+  { id: "tiltright",title: "TILT RIGHT and hold",             motion: "↪️ →",
+    desc: "Tilt the TOP of the knob to the RIGHT (rocking, not sliding) and hold.",
+    axis: "ry", dir: +1 },
+  { id: "tiltleft", title: "TILT LEFT and hold",              motion: "↩️ ←",
+    desc: "Tilt the TOP of the knob to the LEFT and hold.",
+    axis: "ry", dir: -1 },
+  { id: "tiltfwd",  title: "TILT FORWARD and hold",           motion: "⤴️ ↑",
+    desc: "Tilt the TOP of the knob AWAY from you and hold.",
+    axis: "rx", dir: +1 },
+  { id: "tiltback", title: "TILT BACK and hold",              motion: "⤵️ ↓",
+    desc: "Tilt the TOP of the knob TOWARD you and hold.",
+    axis: "rx", dir: -1 },
+];
+
+const TRIGGER_MAG  = 80;   // axis value magnitude that starts the capture timer
+const TRIGGER_HOLD = 400;  // ms the axis must stay triggered before capture
+const CAPTURE_MS   = 1500; // capture window duration
+
+// Wizard state
+const wiz = {
+  step: 0,
+  noise: 0,           // peak axis noise measured at rest
+  axisMin: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
+  axisMax: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
+  axisReading: {},    // stepId → mean axis value
+  running: false,
+};
+
+function startWizard() {
+  $("connectCard").classList.add("hidden");
+  $("wizardCard").classList.remove("hidden");
+  initAxisbars();
+  Object.assign(wiz, {
+    step: 0, noise: 0,
+    axisMin: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
+    axisMax: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
+    axisReading: {},
+    actualAxis: {},
+    running: false,
+  });
+  renderStep();
+}
+
+function renderStep() {
+  const s = STEPS[wiz.step];
+  $("stepsDots").innerHTML = STEPS.map((_, i) =>
+    `<div class="dot ${i < wiz.step ? "done" : i === wiz.step ? "cur" : ""}"></div>`).join("");
+  $("stepNum").textContent   = `Step ${wiz.step + 1} of ${STEPS.length}`;
+  $("stepTitle").textContent = s.title;
+  $("stepDesc").textContent  = s.desc;
+  $("stepMotion").textContent = s.motion;
+  $("progFill").style.width  = "0%";
+  $("stepStatus").textContent = s.id === "rest"
+    ? "Click Start, then keep hands off the device."
+    : "Click Start, then make the movement and hold — the wizard auto-captures.";
+  $("stepStatus").className = "statusline";
+  $("btnStepAction").disabled = false;
+  $("btnStepAction").textContent = "Start";
+}
+
+async function runStep() {
+  const s = STEPS[wiz.step];
+  $("btnStepAction").disabled = true;
+  wiz.running = true;
+
+  if (s.id === "rest") {
+    $("stepStatus").textContent = "Measuring noise floor…";
+    const samples = await collectSamples(s.seconds * 1000);
+    if (!samples.length) {
+      // No HID reports arrived — no SpaceMouse interface available.
+      // Just trigger the re-calibration on device and move on.
+      $("stepStatus").textContent =
+        "No axis data received (SpaceMouse interface unavailable). " +
+        "Triggering center capture on device anyway.";
+      await viaSetByte(CH_SYSTEM, ID_RECALIBRATE, 1);
+      wiz.running = false;
+      setTimeout(nextStep, 1500);
+      return;
+    }
+    // Noise = peak absolute axis value seen while hands off
+    for (const a of samples) {
+      for (const k of AXIS_KEYS) {
+        const mag = Math.abs(a[k]);
+        if (mag > wiz.noise) wiz.noise = mag;
+      }
+    }
+    // Trigger fresh center calibration on the device via VIA
+    await viaSetByte(CH_SYSTEM, ID_RECALIBRATE, 1);
+    stepDone(`Rest noise peak: ${wiz.noise} counts. Center capture triggered on device.`);
+    return;
+  }
+
+  // Movement step — trigger on ANY axis exceeding threshold, not just the
+  // expected one, so the wizard works even when the device's axis mapping
+  // doesn't match the default pipeline order (e.g. "push left" arrives on RZ).
+  $("stepStatus").textContent = "Waiting for movement…";
+  let dominantKey = s.axis;
+  const { triggered, dominantAxis } = await waitForTriggerAny();
+  if (!triggered) {
+    stepFail("No movement detected (30 s timeout). Step skipped — retry or continue.");
+    return;
+  }
+  dominantKey = dominantAxis;
+
+  // Warn live if the axis is unexpected
+  if (dominantKey !== s.axis) {
+    $("stepStatus").textContent =
+      `Movement on ${dominantKey.toUpperCase()} (expected ${s.axis.toUpperCase()}) — capturing…`;
+  } else {
+    $("stepStatus").textContent = "Hold it… capturing.";
+  }
+
+  const samples = await collectSamples(CAPTURE_MS);
+  if (!samples.length) { stepFail("No axis data during capture."); return; }
+
+  // Record which axis actually responded (for review remap note)
+  if (!wiz.actualAxis) wiz.actualAxis = {};
+  wiz.actualAxis[s.id] = dominantKey;
+
+  let sum = 0;
+  for (const a of samples) {
+    sum += a[dominantKey];
+    // Track per-axis min/max across all motion steps
+    for (const k of AXIS_KEYS) {
+      if (a[k] < wiz.axisMin[k]) wiz.axisMin[k] = a[k];
+      if (a[k] > wiz.axisMax[k]) wiz.axisMax[k] = a[k];
+    }
+  }
+  wiz.axisReading[s.id] = Math.round(sum / samples.length);
+  stepDone(`Captured. ${dominantKey.toUpperCase()} = ${wiz.axisReading[s.id]}. Release the knob.`);
+}
+
+// Collect axis samples for `ms` milliseconds from the live stream
+function collectSamples(ms) {
+  return new Promise(resolve => {
+    const samples = [];
+    const start = performance.now();
+    function listener(a) {
+      samples.push({ ...a });
+      const pct = Math.min(100, (performance.now() - start) / ms * 100);
+      $("progFill").style.width = pct + "%";
+      if (performance.now() - start >= ms) { cleanup(); resolve(samples); }
+    }
+    const guard = setTimeout(() => { cleanup(); resolve(samples); }, ms + 5000);
+    function cleanup() {
+      clearTimeout(guard);
+      axisListeners = axisListeners.filter(f => f !== listener);
+    }
+    axisListeners.push(listener);
+  });
+}
+
+// Wait until ANY axis exceeds TRIGGER_MAG for TRIGGER_HOLD ms continuously.
+// Returns { triggered: bool, dominantAxis: string } where dominantAxis is the
+// key with the largest absolute value during the trigger window.
+function waitForTriggerAny() {
+  return new Promise(resolve => {
+    let armedAt = 0;
+    let armedKey = null;
+    let armedMag = 0;
+    const timeout = setTimeout(() => { cleanup(); resolve({ triggered: false, dominantAxis: null }); }, 30000);
+    function listener(a) {
+      // Find the axis with the highest absolute value
+      let bestKey = null, bestMag = 0;
+      for (const k of AXIS_KEYS) {
+        const m = Math.abs(a[k]);
+        if (m > bestMag) { bestMag = m; bestKey = k; }
+      }
+      if (bestMag >= TRIGGER_MAG) {
+        if (!armedAt) { armedAt = performance.now(); armedKey = bestKey; armedMag = bestMag; }
+        // Update dominant key if a stronger axis appears during the hold window
+        if (bestMag > armedMag) { armedKey = bestKey; armedMag = bestMag; }
+        const pct = Math.min(20, (performance.now() - armedAt) / TRIGGER_HOLD * 20);
+        $("progFill").style.width = pct + "%";
+        if (performance.now() - armedAt >= TRIGGER_HOLD) {
+          cleanup();
+          resolve({ triggered: true, dominantAxis: armedKey });
+        }
+      } else {
+        armedAt = 0; armedKey = null; armedMag = 0;
+        $("progFill").style.width = "0%";
+      }
+    }
+    function cleanup() {
+      clearTimeout(timeout);
+      axisListeners = axisListeners.filter(f => f !== listener);
+    }
+    axisListeners.push(listener);
+  });
+}
+
+function stepDone(msg) {
+  $("stepStatus").textContent = msg;
+  $("stepStatus").className = "statusline ok";
+  $("progFill").style.width = "100%";
+  wiz.running = false;
+  setTimeout(nextStep, 1200);
+}
+
+function stepFail(msg) {
+  $("stepStatus").textContent = msg;
+  $("stepStatus").className = "statusline err";
+  $("btnStepAction").disabled = false;
+  $("btnStepAction").textContent = "Retry";
+  wiz.running = false;
+}
+
+function nextStep() {
+  if (++wiz.step >= STEPS.length) { showReview(); return; }
+  renderStep();
+}
+
+// ============================================================================
+// Review
+// ============================================================================
+// axis definitions for the review table
+// posStep/negStep map to step ids; expected positive direction determines
+// whether inversion flag should be set (matches firmware default invert_mask
+// 0b111000 = RX RY RZ inverted).
+const AXIS_DEFS = [
+  { key:"tx", label:"TX",  posStep:"right",     negStep:"left",      defaultInv:false },
+  { key:"ty", label:"TY",  posStep:"forward",   negStep:"back",      defaultInv:false },
+  { key:"tz", label:"TZ",  posStep:"up",        negStep:"down",      defaultInv:false },
+  { key:"rx", label:"RX",  posStep:"tiltfwd",   negStep:"tiltback",  defaultInv:true  },
+  { key:"ry", label:"RY",  posStep:"tiltright", negStep:"tiltleft",  defaultInv:true  },
+  { key:"rz", label:"RZ",  posStep:"twistcw",   negStep:"twistccw",  defaultInv:true  },
+];
+
+function computeDeadzone() {
+  return Math.max(20, Math.min(120, wiz.noise * 4 + 8));
+}
+
+// gainFP: clamped ×256 gain that rescales measured range → NOMINAL_AXIS_RANGE
+// axis range = max(posReading, |negReading|)
+function computeGainFP(axisKey) {
+  const posMax =  wiz.axisMax[axisKey];
+  const negMax = -wiz.axisMin[axisKey];
+  const measured = Math.max(posMax, negMax, 1);
+  const g = Math.round(NOMINAL_AXIS_RANGE * 256 / measured);
+  return Math.max(64, Math.min(1024, g));  // clamp 0.25×..4×
+}
+
+// Suggest inversion: if the positive-labeled movement produced negative output
+// the axis is naturally reversed relative to the firmware reference → flip the
+// default flag.
+function suggestInv(def) {
+  // Use the actual captured axis for this step if it differed from expected
+  const posActual = wiz.actualAxis[def.posStep] || def.key;
+  const negActual = wiz.actualAxis[def.negStep] || def.key;
+  // positive step reading: mean value on the dominant axis
+  const pos = wiz.axisReading[def.posStep];
+  const neg = wiz.axisReading[def.negStep];
+  let reversed = false;
+  if (pos !== undefined && pos !== 0) reversed = pos < 0;
+  else if (neg !== undefined && neg !== 0) reversed = neg > 0;
+  return reversed ? !def.defaultInv : def.defaultInv;
+}
+
+function showReview() {
+  $("wizardCard").classList.add("hidden");
+  $("reviewCard").classList.remove("hidden");
+
+  // Build a note if any step's actual axis differed from expected
+  const remaps = [];
+  for (const s of STEPS) {
+    if (!s.axis) continue;
+    const actual = wiz.actualAxis[s.id];
+    if (actual && actual !== s.axis) {
+      remaps.push(`"${s.title}": expected ${s.axis.toUpperCase()}, captured ${actual.toUpperCase()}`);
+    }
+  }
+
+  let rows = "<tr><th>Axis</th><th>Peak +</th><th>Peak −</th><th>Range</th>" +
+             "<th>Gain FP</th><th>Health</th><th>Invert</th></tr>";
+  for (const d of AXIS_DEFS) {
+    const posV = Math.round(wiz.axisMax[d.key]);
+    const negV = Math.round(-wiz.axisMin[d.key]);
+    const range = posV + negV;
+    const gainFP = computeGainFP(d.key);
+    let health = '<span class="badge ok">ok</span>';
+    if (range < 60)  health = '<span class="badge err">no signal?</span>';
+    else if (range < NOMINAL_AXIS_RANGE * 0.6)
+      health = '<span class="badge warn">weak</span>';
+    const inv = suggestInv(d);
+    rows += `<tr>
+      <td>${d.label}</td>
+      <td class="num">+${posV}</td><td class="num">−${negV}</td>
+      <td class="num">${range}</td>
+      <td class="num">${gainFP} <small>(${(gainFP/256).toFixed(2)}×)</small></td>
+      <td>${health}</td>
+      <td><input type="checkbox" class="flip" id="inv_${d.key}" ${inv ? "checked" : ""}></td>
+    </tr>`;
+  }
+  $("axisTable").innerHTML = rows;
+  $("deadzoneLine").innerHTML =
+    `Recommended <code>deadzone_input</code>: <b>${computeDeadzone()}</b>` +
+    ` (peak rest noise = ${wiz.noise} counts × 4 + 8).` +
+    (remaps.length
+      ? `<br><span style="color:var(--warn)">⚠ Axis remaps detected (your build may differ): ${remaps.join("; ")}.</span>`
+      : "");
+}
+
+function currentInvertMask() {
+  let mask = 0;
+  const bits = { tx:0, ty:1, tz:2, rx:3, ry:4, rz:5 };
+  for (const d of AXIS_DEFS) {
+    if ($("inv_" + d.key).checked) mask |= (1 << bits[d.key]);
+  }
+  return mask;
+}
+
+async function applyToDevice() {
+  const btn = $("btnApply");
+  btn.disabled = true;
+  const status = $("applyStatus");
+  status.textContent = "Writing calibration to device…";
+  status.className = "statusline";
+
+  const dz = computeDeadzone();
+  const gainFPs = AXIS_DEFS.map(d => computeGainFP(d.key));
+  const invMask = currentInvertMask();
+
+  let ok = true;
+
+  // 1. Write deadzone_input (channel 0, id 1, u16 big-endian)
+  if (!await viaSetU16(CH_AXES, ID_DEADZONE_INPUT, dz)) ok = false;
+  await sleep(20);
+
+  // 2. Write gain_fp[0..5] (channel 0, ids 4..9)
+  for (let i = 0; i < 6; i++) {
+    if (!await viaSetU16(CH_AXES, ID_GAIN_TX + i, gainFPs[i])) ok = false;
+    await sleep(20);
+  }
+
+  // 3. Write invert_mask bits (channel 0, ids 10..15, toggle/dropdown = 1 byte)
+  for (let i = 0; i < 6; i++) {
+    const bit = (invMask >> i) & 1;
+    if (!await viaSetByte(CH_AXES, ID_INVERT_X + i, bit)) ok = false;
+    await sleep(20);
+  }
+
+  // 4. Save to EEPROM
+  await viaSave();
+  await sleep(50);
+
+  // 5. Trigger fresh center calibration on device
+  await viaSetByte(CH_SYSTEM, ID_RECALIBRATE, 1);
+
+  if (ok) {
+    status.textContent =
+      "✔ Calibration saved to EEPROM and center recaptured. " +
+      "Unplug and replug — the device will boot with your calibration applied.";
+    status.className = "statusline ok";
+  } else {
+    status.textContent =
+      "⚠ Some VIA writes failed (is viam keymap running?). " +
+      "Check the connection and retry.";
+    status.className = "statusline err";
+    btn.disabled = false;
+  }
+}
+
+async function factoryReset() {
+  if (!confirm("Reset all VIA settings to firmware defaults? This cannot be undone.")) return;
+  const status = $("applyStatus");
+  status.textContent = "Sending factory reset…";
+  await viaSetByte(CH_SYSTEM, 11 /* id_reset_defaults */, 1);
+  await sleep(100);
+  await viaSave();
+  status.textContent = "✔ Factory reset sent. Replug the device.";
+  status.className = "statusline ok";
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ============================================================================
+// Wire up
+// ============================================================================
+$("btnConnect").onclick   = connect;
+$("btnStepAction").onclick= () => { if (!wiz.running) runStep(); };
+$("btnSkip").onclick      = () => { if (!wiz.running) nextStep(); };
+$("btnRestart").onclick   = () => { $("reviewCard").classList.add("hidden"); startWizard(); };
+$("btnRestart2").onclick  = () => { $("reviewCard").classList.add("hidden"); startWizard(); };
+$("btnApply").onclick     = applyToDevice;
+$("btnFactory").onclick   = factoryReset;
+</script>
+</body>
+</html>
