@@ -20,6 +20,10 @@
 
 #include "orbit_pipeline.h" /* the ported code under test */
 
+/* Phase 9: the pipeline reads the live config block. All-default config
+ * must reproduce golden.csv exactly -- that IS the Phase 9 gate. */
+orbit_config_t g_config = ORBIT_CONFIG_DEFAULTS;
+
 static orbit_smooth_t g_smooth;
 
 static void emitRow(int mode, const int raw[8], const int center[8]) {

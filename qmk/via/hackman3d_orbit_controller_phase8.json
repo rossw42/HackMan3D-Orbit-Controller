@@ -1,0 +1,11 @@
+{
+  "name": "HackMan3D Orbit Controller",
+  "vendorId": "0x256F",
+  "productId": "0xC631",
+  "matrix": { "rows": 1, "cols": 3 },
+  "layouts": {
+    "keymap": [
+      ["0,0", "0,1", "0,2"]
+    ]
+  }
+}

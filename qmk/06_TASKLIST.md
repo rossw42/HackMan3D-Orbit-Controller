@@ -195,38 +195,79 @@ then confirmed on hardware via `qmk console` with the `debug` keymap:
 
 ## Phase 8 — Live keymap editing (VIA)
 
-- [ ] `keymaps/viam/` with `VIA_ENABLE = yes`
-- [ ] `DYNAMIC_KEYMAP_LAYER_COUNT 3`, `DYNAMIC_KEYMAP_MACRO_COUNT 0`
-- [ ] 3-layer keymap: base (joystick buttons), slicer-short, slicer-long
-- [ ] `orbit_slicer.c` long-press dispatch via `keymap_key_to_keycode()` + `tap_code16()`
-- [ ] Confirm the 6 default shortcuts match the Arduino defaults exactly
-      (Tab / Shift+Alt+G / N / L / Ctrl+0 / A)
-- [ ] Test: remap a button in VIA → takes effect without reflash
-- [ ] Test: remap persists across replug
+- [x] `keymaps/viam/` with `VIA_ENABLE = yes` (existed since Phase 2; now verified
+      against the complete Phase 5–7 codebase)
+- [x] `DYNAMIC_KEYMAP_LAYER_COUNT 3`, `DYNAMIC_KEYMAP_MACRO_COUNT 0`
+      (`keymaps/viam/config.h` — macros would claim ~800 B of the 1 KB EEPROM)
+- [x] 3-layer keymap: base (all `KC_NO` — 6DOF buttons bypass the keymap),
+      slicer-short, slicer-long
+- [x] `orbit_slicer.c` long-press dispatch via `keymap_key_to_keycode()` +
+      `tap_code16_delay()` (landed in Phase 7). With `VIA_ENABLE`,
+      `dynamic_keymap.c` provides the strong `keycode_at_keymap_location()`
+      (EEPROM-backed), which the weak `keymap_key_to_keycode()` calls — so VIA
+      remaps flow through with **zero** slicer changes
+- [x] Confirm the 6 default shortcuts match the Arduino defaults exactly
+      (Tab / Shift+Alt+G / N / L / Ctrl+0 / A) — verified against the .ino
+      constant tables: mod `0x06`+`0x0A` → `LSA(KC_G)`, mod `0x01`+key `0x27`
+      → `LCTL(KC_0)`, plain `KC_TAB`/`KC_N`/`KC_L`/`KC_A`
+- [x] Build passes: `viam` = 15,866 B (55 %, 12,806 B free); endpoint check OK
+      (RAW HID rides the shared endpoint — no conflict with the multi-axis EP)
+- [x] **Double-fire fix** (found on hardware): remapping layer 0 in VIA made
+      the direct matrix fire that keycode through normal QMK processing *in
+      addition to* the 650 ms slicer dispatch. `process_record_kb()` in
+      `orbit_controller.c` now returns `false` unconditionally — the matrix
+      never fires keycodes; all button behaviour is owned by
+      `orbit_chords.c`/`orbit_slicer.c`. VIA (raw_hid) and slicer dispatch
+      (`keymap_key_to_keycode()` + `tap_code16_delay()`) are unaffected
+- [x] Keymap-only VIA sidecar JSON for Phase 8 testing:
+      `qmk/via/hackman3d_orbit_controller_phase8.json` (the full
+      `hackman3d_orbit_controller.json` includes the Phase 9 custom menus,
+      whose handler `orbit_via.c` doesn't exist yet — loading it now would
+      show 5 dead tabs)
+- [x] Test: remap a button in VIA → takes effect without reflash (**hardware ✅**)
+- [x] Test: remap persists across replug (**hardware ✅**)
+- [x] Retest after the double-fire fix (**hardware ✅ 2026-08-10**, live
+      `qmk console` trace): in slicer mode all 3 buttons dispatch the correct
+      layer-1 defaults (`kc=0x002B` Tab / `0x0011` N / `0x0127` Ctrl+0); in
+      6DOF mode buttons are joystick buttons only, no keypresses — matches
+      the Arduino firmware. A `slicer dispatch:` trace (CONSOLE_ENABLE only)
+      was added to `run_slicer_button_action()` for future diagnosis
 
 **Exit criteria:** button actions editable live; defaults unchanged from Arduino.
+
+**Hardware test procedure:** flash `viam`, load the *phase8* JSON in VIA's
+Design tab, toggle slicer mode (buttons 1+2 held 250 ms), remap e.g. button 1
+short-press on layer 1 (`_SLICER`) from Tab to something visible, verify the
+new key fires on short press without reflashing, then replug and verify it
+persists. Layer 0 remaps are expected to do nothing (6DOF buttons bypass the
+keymap).
 
 ---
 
 ## Phase 9 — Live tuning (VIA custom menus)
 
-- [ ] `orbit_config.h/.c` — the config struct + defaults + `magic` + `orbit_config_validate()`
-- [ ] `EECONFIG_KB_DATA_SIZE 64`
-- [ ] `orbit_config_load()` / `save()` / `eeconfig_init_kb()`
-- [ ] Replace every hardcoded constant in the pipeline with a `g_config` read
-- [ ] Recompute `INPUT_MAX` from the live gains (doc `04` §4) — preserving the TZ=2048 /
-      RZ=1024 asymmetry
-- [ ] `orbit_via.c` — `via_custom_value_command_kb()` with all 5 channels, 50 values
-- [ ] **Big-endian** u16 packing
-- [ ] **Clamp/validate every setter** — a zero divisor bricks the device until reflash
-- [ ] Recalibrate + reset-to-defaults actions
-- [ ] `qmk/via/hackman3d_orbit_controller.json`
+- [x] `orbit_config.h/.c` — the config struct + defaults + `magic` + `orbit_config_validate()`
+- [x] `EECONFIG_KB_DATA_SIZE 64` (struct is 62 B packed)
+- [x] `orbit_config_load()` / `save()` / `eeconfig_init_kb()`
+- [x] Replace every hardcoded constant in the pipeline with a `g_config` read
+      (golden gate re-run with all-default config: **diff EMPTY**; chord + slicer
+      host harnesses re-run: **ALL PASS**)
+- [x] Recompute `INPUT_MAX` from the live gains (doc `04` §4) — preserving the TZ=2048 /
+      RZ=1024 asymmetry (`orbit_input_max_fp256()`)
+- [x] `orbit_via.c` — `via_custom_value_command_kb()` with all 5 channels, 50 values
+- [x] **Big-endian** u16 packing
+- [x] **Clamp/validate every setter** — `orbit_config_validate()` runs after every
+      set_value (a zero divisor bricks the device until reflash)
+- [x] Recalibrate + reset-to-defaults actions (System channel ids 10/11)
+- [x] `qmk/via/hackman3d_orbit_controller.json` — value IDs verified 1:1 against
+      `orbit_via.c`
 - [ ] Load in VIA Design tab; verify all 5 tabs render
 - [ ] Test: drag each slider → immediate effect on device behavior
 - [ ] Test: save → survives replug
 - [ ] Test: reset to defaults → matches Arduino defaults exactly
 - [ ] Test: try to set smooth divisor to 0 → clamped, device survives
-- [ ] Record final firmware size
+- [x] Record final firmware size — `viam` 19,526 B (68 %, 9,146 B free);
+      `default` 16,674 B (58 %); `debug` 18,410 B (64 %)
 
 **Exit criteria:** all 50 values editable live and persisted; no value can hang the device.
 
@@ -384,6 +425,6 @@ confirm motion is smooth and maximal rather than cutting out. Compare against a 
 | 5 — 6DOF output | ✅ **Verified in 3DxWare** — all 6 axes work in the 3Dconnexion view; remaining: Fusion 360 A/B + report-rate measurement |
 | 6 — Buttons/chords/LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware via qmk console |
 | 7 — Slicer mouse | ✅ **COMPLETE** — host harness ALL PASS (36 checks) + hardware-verified in Bambu Studio |
-| 8 — Live keymap (VIA) | ☐ Not started |
-| 9 — Live tuning (VIA menus) | ☐ Not started |
+| 8 — Live keymap (VIA) | ✅ **COMPLETE** — remap + persistence + dispatch all hardware-verified; double-fire fixed (15,866 B, 55 %) |
+| 9 — Live tuning (VIA menus) | 🟡 **Code + host gates complete** — golden diff EMPTY with live config, chord/slicer harnesses ALL PASS, JSON IDs verified, `viam` 19,526 B (68 %); remaining: hardware tests (VIA tabs render, live sliders, persistence, reset, clamp) |
 | 10 — Validation & release | ☐ Not started |

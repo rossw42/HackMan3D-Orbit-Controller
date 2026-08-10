@@ -1,6 +1,7 @@
 {
   "name": "HackMan3D Orbit Controller",
-  "vendorProductId": 628082225,
+  "vendorId": "0x256F",
+  "productId": "0xC631",
   "matrix": { "rows": 1, "cols": 3 },
   "layouts": {
     "keymap": [

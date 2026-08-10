@@ -20,11 +20,18 @@
  *
  * Build (from qmk/test):
  *   cp <qmk_firmware>/keyboards/hackman3d/orbit_controller/orbit_chords.c mock/
+ *   cp <qmk_firmware>/keyboards/hackman3d/orbit_controller/orbit_config.h mock/
  *   gcc -Wall -Wextra -O2 -I mock -o chord_test.exe chord_test.c mock/orbit_chords.c
  */
 
 #include <stdio.h>
 #include "orbit_controller.h"
+#include "orbit_config.h"
+
+/* Phase 9: orbit_chords.c reads its timings + the suppress flag from the
+ * live config block. Defaults reproduce the original compile-time constants
+ * (debounce 10, window 250, lockouts 500, suppress on). */
+orbit_config_t g_config = ORBIT_CONFIG_DEFAULTS;
 
 /* ========================================================================
  * Simulated environment

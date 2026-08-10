@@ -17,6 +17,8 @@ Last qmk_firmware commit before Phase 6: `5fa63faa0d` — Phases 6 and 7 committ
 | 5 — 6DOF output | ✅ **verified in 3DxWare** — all 6 axes work; Fusion A/B + rate pending |
 | 6 — Buttons, chords, LEDs | ✅ **COMPLETE** — host harness ALL PASS (25 checks) + all 5 tests confirmed on hardware |
 | 7 — Slicer mouse mode | ✅ **COMPLETE** — host harness ALL PASS (36 checks) + hardware-verified in Bambu Studio |
+| 8 — Live keymap editing (VIA) | ✅ **COMPLETE** — remap + persistence + dispatch all hardware-verified; double-fire fixed |
+| 9 — Live tuning (VIA custom menus) | ✅ **code + host gates complete** — golden diff EMPTY, chord/slicer ALL PASS, all 3 keymaps build; hardware verification pending |
 
 ### Phase 4 gates (both passed, 2026-08-09)
 
@@ -178,12 +180,140 @@ slicer mode), live axis data driving the mouse, and chord detection intact
 
 **Phase 7 exit criteria MET.**
 
-## Next up: Phase 8 — Live keymap editing (VIA)
+## Phase 8 — Live keymap editing (VIA) — COMPLETE, hardware-verified (2026-08-10)
 
-`keymaps/viam/` with `VIA_ENABLE = yes`, `DYNAMIC_KEYMAP_LAYER_COUNT 3`,
-`DYNAMIC_KEYMAP_MACRO_COUNT 0`. The slicer dispatch already goes through
-`keymap_key_to_keycode()`, so VIA remaps take effect with no further slicer
-changes. See `qmk/06_TASKLIST.md` Phase 8.
+`keymaps/viam/` (existing since Phase 2) verified against the complete
+Phase 5–7 codebase; no code changes were needed:
+
+- `keymaps/viam/rules.mk` — `VIA_ENABLE = yes` (`orbit_via.c` stays commented
+  out until Phase 9)
+- `keymaps/viam/config.h` — `DYNAMIC_KEYMAP_LAYER_COUNT 3`,
+  `DYNAMIC_KEYMAP_MACRO_COUNT 0` (macros would claim ~800 B of the 1 KB
+  EEPROM)
+- `keymaps/viam/keymap.c` — `_BASE` all `KC_NO` (6DOF buttons bypass the
+  keymap), `_SLICER` = Tab / N / Ctrl+0, `_SLICER_LONG` = Shift+Alt+G / L / A
+  — verified against the .ino constant tables (mod `0x06`+key `0x0A` →
+  `LSA(KC_G)`; mod `0x01`+key `0x27` → `LCTL(KC_0)`)
+
+Remap path (zero slicer changes, by design): `orbit_slicer.c::
+run_slicer_button_action()` → weak `keymap_key_to_keycode()` → with VIA,
+`dynamic_keymap.c`'s strong `keycode_at_keymap_location()` reads the
+EEPROM-backed dynamic keymap. So VIA edits to layers 1/2 flow straight into
+the 650 ms short/long dispatch.
+
+**Build passes:** `viam` = **15,866 B (55 %, 12,806 B free)**; endpoint check
+OK (RAW HID uses the shared endpoint — no conflict with the multi-axis EP).
+
+**Bug found on hardware (2026-08-09) — FIXED:** in slicer mode, a physical
+press fired the layer-0 keycode through normal QMK processing *and* the
+650 ms slicer dispatch (double-fire). Layer 0 had only been inert by
+accident (all `KC_NO`); once VIA let the user remap it, the direct matrix
+started firing. Fix in `orbit_controller.c`: `process_record_kb()` returns
+`false` unconditionally — the matrix never fires keycodes; all button
+behaviour is owned by `orbit_chords.c` + `orbit_slicer.c`. VIA is unaffected
+(raw_hid path), and slicer dispatch is unaffected (`keymap_key_to_keycode()`
++ `tap_code16_delay()` bypass process_record). Layer 0 is now a true
+lookup-only layer; the size drop from 17,388 B is LTO stripping the
+unreachable action paths.
+
+New sidecar for testing: `qmk/via/hackman3d_orbit_controller_phase8.json` —
+keymap-only (name/vendorProductId/matrix/layout). Do **not** load the full
+`hackman3d_orbit_controller.json` yet; its 5 custom-menu tabs need
+`orbit_via.c` (Phase 9) and would render dead.
+
+### Hardware results (2026-08-09/10 — all passed):
+
+1. ✅ VIA connects with the *phase8* JSON (after flashing `viam` — the first
+   attempt had `debug` flashed, which has no `VIA_ENABLE`/RAW HID)
+2. ✅ Remap in VIA takes effect without reflash
+3. ✅ Remap survives replug
+4. ✅ Double-fire fix retested via live `qmk console` trace: in slicer mode
+   all 3 buttons dispatch the correct layer-1 defaults (`kc=0x002B` Tab /
+   `0x0011` N / `0x0127` Ctrl+0); in 6DOF mode buttons are joystick buttons
+   only, **no keypresses — by design, matches the Arduino firmware**. A
+   `slicer dispatch: btn=N long=X kc=0x....` trace (CONSOLE_ENABLE only,
+   compiled out of `viam`) was added to `run_slicer_button_action()` in
+   `orbit_slicer.c`; `debug` build = 16,184 B (56 %)
+
+**Support note:** every "keypresses don't work" report during testing traced
+to slicer mode not being engaged — the toggle is the **btn:6 pair held
+250 ms** (console prints `slicer:1`, RX LED lights), and it resets to off on
+every reflash/replug (RAM-only until Phase 9). The `btn:3` pair is *not* the
+combo and correctly leaks to HID as plain joystick buttons.
+
+**Phase 8 exit criteria MET.**
+
+---
+
+## Phase 9 — Live tuning (VIA custom menus) — code + host gates COMPLETE (2026-08-10)
+
+Every tunable now lives in a single EEPROM-backed struct (`g_config`) read
+live each scan; VIA custom menus write it over raw HID. Hardware
+verification (VIA GUI end-to-end + persistence) is the remaining step.
+
+New/changed in `keyboards/hackman3d/orbit_controller/`:
+
+- **`orbit_config.h`** (new) — pure-C `orbit_config_t` (packed, **62 B**,
+  fits `EECONFIG_KB_DATA_SIZE 64`): deadzones, smoothing divisor,
+  6 gains (fp/256), invert mask, speed mode/scales/curves, rotation
+  priority, Z-detection multipliers, flags (dominant-axis / auto-drag /
+  slicer-active / suppress-chord), all slicer tunables, all
+  chord/debounce/calibration timings. `ORBIT_CONFIG_DEFAULTS` = Arduino
+  v1.1.0 values verbatim, single source of truth shared with the host
+  harnesses. `ORBIT_CONFIG_MAGIC 0xB1` — bump on any layout change.
+- **`orbit_config.c`** (new) — `eeconfig` datablock load/save,
+  `orbit_config_validate()` clamps EVERY field (a zero divisor from a raw
+  HID packet would otherwise brick the scan loop until reflash), magic
+  mismatch → defaults. Slicer enable and speed mode now **persist across
+  replug** (was RAM-only since Phase 6).
+- **`orbit_via.c`** (new, viam keymap only) — `via_custom_value_command_kb`:
+  5 channels (0=Axes 1=Speed 2=Filters 3=Slicer 4=System), value IDs match
+  `qmk/via/hackman3d_orbit_controller.json` exactly (verified 1:1), range
+  controls are big-endian u16, toggles/dropdowns 1 byte. Every set_value
+  runs `orbit_config_validate()`; EEPROM written only on `id_custom_save`.
+  System channel includes two momentary actions: **Recalibrate now** and
+  **Reset all to defaults**. Speed-mode and slicer-active setters route
+  through the same functions the chords use (smoothing reset + LED signal
+  + persist).
+- **`orbit_pipeline.h` / `orbit_logic.h`** — compile-time constants replaced
+  with `g_config` reads (gains, deadzones, speed scaling, rotation priority,
+  Z-detection, invert mask, dominant-axis flag). Curves stay as the 3
+  PROGMEM LUTs; `speed_curve_idx[]` selects per mode.
+- **`orbit_chords.c` / `orbit_slicer.c` / `orbit_axes.c`** — timings,
+  slicer tunables and calibration bounds read from `g_config`;
+  chord-member suppression now behind `ORBIT_FLAG_SUPPRESS_CHORD`.
+- **`keymaps/viam/rules.mk`** — `SRC += orbit_via.c` enabled.
+
+### Host gates (all passed, 2026-08-10; local gcc 15.2.0 via scoop)
+
+- **Golden gate re-run (the Phase 9 gate):** `qmk_pipeline.c` defines
+  `orbit_config_t g_config = ORBIT_CONFIG_DEFAULTS;` — all-default config
+  through the live-config pipeline diffs **EMPTY** against `golden.csv`.
+- **`chord_test.exe` ALL PASS** (g_config instance added to the harness).
+- **`slicer_test.exe` ALL PASS — 36 checks** (g_config +
+  `orbit_config_save()` no-op stub, since `orbit_slicer_set_enabled()` now
+  persists).
+- Harness builds now also need `orbit_config.h` copied into `mock/`.
+
+### Builds (all clean, 2026-08-10)
+
+| Keymap | Size | Free |
+|---|---|---|
+| `default` | 16,674 B (58 %) | 11,998 B |
+| `debug` | 18,410 B (64 %) | 10,262 B |
+| `viam` | 19,526 B (68 %) | 9,146 B |
+
+Phase 9 cost ≈ 3.7 KB on `viam` (config + validate + VIA handler) — still
+comfortably inside the 05_SIZE_BUDGET envelope.
+
+### Remaining for Phase 9 exit (hardware)
+
+1. Flash `viam`, sideload the **full** `qmk/via/hackman3d_orbit_controller.json`
+   (the 5 custom-menu tabs are now live — the phase8 JSON is obsolete)
+2. Move a slider (e.g. TZ gain) → axis response changes live, no reflash
+3. Save in VIA → replug → values persist (incl. slicer mode + speed mode)
+4. "Reset all to defaults" restores golden behaviour
+5. "Recalibrate now" with stick centred → centers re-captured
 
 (Phase 5 leftovers folded into Phase 10 validation: Fusion 360 A/B side-by-side,
 report-rate measurement ~125 Hz.)

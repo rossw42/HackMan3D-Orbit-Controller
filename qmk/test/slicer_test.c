@@ -14,16 +14,26 @@
 //
 // Build (QMK MSYS gcc, from qmk/test):
 //   cp <qmk>/keyboards/hackman3d/orbit_controller/orbit_slicer.c mock/
+//   cp <qmk>/keyboards/hackman3d/orbit_controller/orbit_config.h mock/
 //   gcc -Wall -Wextra -O2 -I mock -o slicer_test.exe slicer_test.c mock/orbit_slicer.c
 //   ./slicer_test.exe
 
 #include <stdio.h>
 #include <string.h>
 #include "orbit_controller.h"
+#include "orbit_config.h"
 
 /* ========================================================================
  * Mocks
  * ===================================================================== */
+
+/* Phase 9: orbit_slicer.c reads all tunables + the enabled flag from the
+ * live config block; defaults == the original compile-time constants. */
+orbit_config_t g_config = ORBIT_CONFIG_DEFAULTS;
+
+/* orbit_slicer_set_enabled() persists via orbit_config_save(); no EEPROM
+ * on the host, so it's a no-op here. */
+void orbit_config_save(void) {}
 
 orbit_axes_t orbit_axes = {0};
 
