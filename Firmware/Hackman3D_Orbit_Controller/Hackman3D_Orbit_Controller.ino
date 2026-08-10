@@ -4,7 +4,7 @@
 // ============================================================================
 // Hackman3D DIY SpaceMouse Firmware
 // Firmware for Arduino Pro Micro / ATmega32U4
-// Version: 1.0.0
+// Version: 1.1.0
 //
 // EN: This firmware turns an Arduino Pro Micro into a 6-axis HID SpaceMouse.
 // FR: Ce firmware transforme un Arduino Pro Micro en souris 3D HID 6 axes.
@@ -104,23 +104,40 @@ const uint8_t SLICER_MOUSE_BUTTON_LEFT = 0x01;
 const uint8_t SLICER_MOUSE_BUTTON_RIGHT = 0x02;
 const uint8_t SLICER_MOUSE_BUTTON_MIDDLE = 0x04;
 const uint8_t SLICER_MOUSE_DRAG_BUTTON = SLICER_MOUSE_BUTTON_LEFT;
-const uint8_t SLICER_SHORTCUT_MODIFIER_PRIMARY = 0x08; // macOS Command
-const uint8_t SLICER_SHORTCUT_MODIFIER_SHIFT = 0x02;
-const uint8_t SLICER_SHORTCUT_KEY_0 = 0x27;
-const uint8_t SLICER_SHORTCUT_KEY_A = 0x04;
-const uint8_t SLICER_SHORTCUT_KEY_G = 0x0A;
-const uint8_t SLICER_SHORTCUT_KEY_L = 0x0F;
-const uint8_t SLICER_SHORTCUT_KEY_N = 0x11;
-const uint8_t SLICER_SHORTCUT_KEY_TAB = 0x2B;
-const int SLICER_BUTTON_ACTION_HOME = 1;
-const int SLICER_BUTTON_ACTION_PAINT = 2;
-const int SLICER_BUTTON_ACTION_TAB_SEND = 3;
 const unsigned long SLICER_BUTTON_LONG_PRESS_MS = 650;
-const int SLICER_BUTTON_ACTIONS[3] = {
-  SLICER_BUTTON_ACTION_TAB_SEND,
-  SLICER_BUTTON_ACTION_PAINT,
-  SLICER_BUTTON_ACTION_HOME
-};
+
+// EN: Per-button shortcut constants — modifier byte + HID key code for each
+//     button's short press and long press.  Edit these 12 values to remap the
+//     three slicer buttons to any keyboard shortcut, including Ctrl+1, Alt+F4,
+//     Cmd+Shift+Z, etc.  Use the ButtonRemapper tool to change them without
+//     editing this file manually.
+//
+//     Modifier byte (bitmask, combine with |):
+//       0x01 = Left Ctrl    0x10 = Right Ctrl
+//       0x02 = Left Shift   0x20 = Right Shift
+//       0x04 = Left Alt     0x40 = Right Alt
+//       0x08 = Left GUI/⌘   0x80 = Right GUI
+//
+// FR: Constantes de raccourcis par bouton — octet modificateur + code HID
+//     pour chaque appui court et long des trois boutons.
+
+// Button 1 — default: short = Tab, long = Cmd+Shift+G
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON1_SHORT = 0x00;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON1_SHORT       = 0x2B;
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON1_LONG   = 0x0A;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON1_LONG         = 0x0A;
+
+// Button 2 — default: short = N, long = L
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON2_SHORT = 0x00;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON2_SHORT       = 0x11;
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON2_LONG   = 0x00;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON2_LONG         = 0x0F;
+
+// Button 3 — default: short = Cmd+0 (Home view), long = A (Select All)
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON3_SHORT = 0x08;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON3_SHORT       = 0x27;
+const uint8_t SLICER_SHORTCUT_MODIFIER_BUTTON3_LONG   = 0x00;
+const uint8_t SLICER_SHORTCUT_KEY_BUTTON3_LONG         = 0x04;
 
 
 // ============================================================================
@@ -1238,42 +1255,35 @@ void resetSlicerButtonActions() {
 
 
 // ============================================================================
-// runSlicerButtonAction()
-// EN: Runs one configured slicer button shortcut.
-// FR: Exécute un raccourci configuré pour un bouton slicer.
+// getButtonShortcutModifier() / getButtonShortcutKey()
+// EN: Returns the configured modifier / key for a button + press-type pair.
+// FR: Retourne le modificateur / la touche configurée pour un bouton.
 // ============================================================================
 
-void runSlicerButtonAction(int action, bool longPress) {
-  releaseSlicerMouseButtons();
-
-  if (action == SLICER_BUTTON_ACTION_HOME) {
-    if (longPress) {
-      sendSlicerKeyboardShortcut(0, SLICER_SHORTCUT_KEY_A);
-    } else {
-      sendSlicerKeyboardShortcut(SLICER_SHORTCUT_MODIFIER_PRIMARY, SLICER_SHORTCUT_KEY_0);
-    }
-
-    return;
+uint8_t getButtonShortcutModifier(int buttonIndex, bool longPress) {
+  if (longPress) {
+    if (buttonIndex == 0) return SLICER_SHORTCUT_MODIFIER_BUTTON1_LONG;
+    if (buttonIndex == 1) return SLICER_SHORTCUT_MODIFIER_BUTTON2_LONG;
+    if (buttonIndex == 2) return SLICER_SHORTCUT_MODIFIER_BUTTON3_LONG;
+  } else {
+    if (buttonIndex == 0) return SLICER_SHORTCUT_MODIFIER_BUTTON1_SHORT;
+    if (buttonIndex == 1) return SLICER_SHORTCUT_MODIFIER_BUTTON2_SHORT;
+    if (buttonIndex == 2) return SLICER_SHORTCUT_MODIFIER_BUTTON3_SHORT;
   }
+  return 0x00;
+}
 
-  if (action == SLICER_BUTTON_ACTION_PAINT) {
-    if (longPress) {
-      sendSlicerKeyboardShortcut(0, SLICER_SHORTCUT_KEY_L);
-    } else {
-      sendSlicerKeyboardShortcut(0, SLICER_SHORTCUT_KEY_N);
-    }
-
-    return;
+uint8_t getButtonShortcutKey(int buttonIndex, bool longPress) {
+  if (longPress) {
+    if (buttonIndex == 0) return SLICER_SHORTCUT_KEY_BUTTON1_LONG;
+    if (buttonIndex == 1) return SLICER_SHORTCUT_KEY_BUTTON2_LONG;
+    if (buttonIndex == 2) return SLICER_SHORTCUT_KEY_BUTTON3_LONG;
+  } else {
+    if (buttonIndex == 0) return SLICER_SHORTCUT_KEY_BUTTON1_SHORT;
+    if (buttonIndex == 1) return SLICER_SHORTCUT_KEY_BUTTON2_SHORT;
+    if (buttonIndex == 2) return SLICER_SHORTCUT_KEY_BUTTON3_SHORT;
   }
-
-  if (action == SLICER_BUTTON_ACTION_TAB_SEND) {
-    if (longPress) {
-      sendSlicerKeyboardShortcut(SLICER_SHORTCUT_MODIFIER_PRIMARY | SLICER_SHORTCUT_MODIFIER_SHIFT,
-                                 SLICER_SHORTCUT_KEY_G);
-    } else {
-      sendSlicerKeyboardShortcut(0, SLICER_SHORTCUT_KEY_TAB);
-    }
-  }
+  return 0x00;
 }
 
 
@@ -1298,7 +1308,6 @@ void updateSlicerMouseButtons(uint32_t buttonMask, bool suppressButtons) {
 
   for (int i = 0; i < BUTTON_COUNT; i++) {
     bool pressed = (buttonMask & (1UL << i)) != 0;
-    int action = SLICER_BUTTON_ACTIONS[i];
 
     if (pressed && !slicerButtonWasPressed[i]) {
       slicerButtonWasPressed[i] = true;
@@ -1306,19 +1315,30 @@ void updateSlicerMouseButtons(uint32_t buttonMask, bool suppressButtons) {
       slicerButtonPressedAt[i] = now;
     }
 
+    // EN: Fire long-press shortcut once the hold threshold is reached.
+    // FR: Déclenche le raccourci long appui dès que le seuil est atteint.
     if (pressed &&
-        (action == SLICER_BUTTON_ACTION_PAINT ||
-         action == SLICER_BUTTON_ACTION_TAB_SEND ||
-         action == SLICER_BUTTON_ACTION_HOME) &&
         !slicerButtonLongHandled[i] &&
         now - slicerButtonPressedAt[i] >= SLICER_BUTTON_LONG_PRESS_MS) {
-      runSlicerButtonAction(action, true);
+      uint8_t mod = getButtonShortcutModifier(i, true);
+      uint8_t key = getButtonShortcutKey(i, true);
+      if (key != 0x00 || mod != 0x00) {
+        releaseSlicerMouseButtons();
+        sendSlicerKeyboardShortcut(mod, key);
+      }
       slicerButtonLongHandled[i] = true;
     }
 
+    // EN: Fire short-press shortcut on release (if long press was not used).
+    // FR: Déclenche le raccourci court appui au relâchement (si long non utilisé).
     if (!pressed && slicerButtonWasPressed[i]) {
       if (!slicerButtonLongHandled[i]) {
-        runSlicerButtonAction(action, false);
+        uint8_t mod = getButtonShortcutModifier(i, false);
+        uint8_t key = getButtonShortcutKey(i, false);
+        if (key != 0x00 || mod != 0x00) {
+          releaseSlicerMouseButtons();
+          sendSlicerKeyboardShortcut(mod, key);
+        }
       }
 
       slicerButtonWasPressed[i] = false;

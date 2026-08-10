@@ -181,38 +181,46 @@ const MODIFIERS = {
   0x05: 'Ctrl + Alt',
   0x06: 'Shift + Alt',
   0x07: 'Ctrl + Shift + Alt',
-  0x08: 'Γîÿ Cmd',
-  0x09: 'Γîÿ Cmd + Ctrl',
-  0x0A: 'Γîÿ Cmd + Shift',
-  0x0B: 'Γîÿ Cmd + Ctrl + Shift',
-  0x0C: 'Γîÿ Cmd + Alt',
-  0x0E: 'Γîÿ Cmd + Shift + Alt',
+  0x08: '\u2318 Cmd',
+  0x09: '\u2318 Cmd + Ctrl',
+  0x0A: '\u2318 Cmd + Shift',
+  0x0B: '\u2318 Cmd + Ctrl + Shift',
+  0x0C: '\u2318 Cmd + Alt',
+  0x0E: '\u2318 Cmd + Shift + Alt',
 };
 
 const MODIFIER_KBD = {
   0x00: null,
-  0x01: 'Ctrl',      0x02: 'Shift',         0x03: 'Ctrl+Shift',
-  0x04: 'Alt',       0x05: 'Ctrl+Alt',       0x06: 'Shift+Alt',    0x07: 'Ctrl+Shift+Alt',
-  0x08: 'Γîÿ',         0x09: 'Γîÿ Ctrl',        0x0A: 'Γîÿ Shift',      0x0B: 'Γîÿ Ctrl+Shift',
-  0x0C: 'Γîÿ Alt',     0x0E: 'Γîÿ Shift+Alt',
+  0x01: 'Ctrl',      0x02: 'Shift',           0x03: 'Ctrl+Shift',
+  0x04: 'Alt',       0x05: 'Ctrl+Alt',         0x06: 'Shift+Alt',    0x07: 'Ctrl+Shift+Alt',
+  0x08: '\u2318',    0x09: '\u2318 Ctrl',      0x0A: '\u2318 Shift',      0x0B: '\u2318 Ctrl+Shift',
+  0x0C: '\u2318 Alt', 0x0E: '\u2318 Shift+Alt',
 };
 
 const KEYS = {
   0x00: 'None',
+  // Letters
   0x04:'A', 0x05:'B', 0x06:'C', 0x07:'D', 0x08:'E', 0x09:'F',
   0x0A:'G', 0x0B:'H', 0x0C:'I', 0x0D:'J', 0x0E:'K', 0x0F:'L',
   0x10:'M', 0x11:'N', 0x12:'O', 0x13:'P', 0x14:'Q', 0x15:'R',
   0x16:'S', 0x17:'T', 0x18:'U', 0x19:'V', 0x1A:'W', 0x1B:'X',
   0x1C:'Y', 0x1D:'Z',
+  // Number row
   0x1E:'1', 0x1F:'2', 0x20:'3', 0x21:'4', 0x22:'5',
   0x23:'6', 0x24:'7', 0x25:'8', 0x26:'9', 0x27:'0',
+  // Special keys
   0x28:'Enter', 0x29:'Escape', 0x2A:'Backspace', 0x2B:'Tab', 0x2C:'Space',
-  0x3A:'F1', 0x3B:'F2', 0x3C:'F3', 0x3D:'F4',
-  0x3E:'F5', 0x3F:'F6', 0x40:'F7', 0x41:'F8',
-  0x42:'F9', 0x43:'F10', 0x44:'F11', 0x45:'F12',
-  0x4A:'Home', 0x4B:'Page Up', 0x4C:'Delete',
-  0x4D:'End',  0x4E:'Page Down',
-  0x4F:'Right', 0x50:'Left', 0x51:'Down', 0x52:'Up',
+  // Punctuation / symbols
+  0x2D:'-', 0x2E:'=', 0x2F:'[', 0x30:']', 0x31:'\\',
+  0x33:';', 0x34:"'", 0x35:'`', 0x36:',', 0x37:'.', 0x38:'/',
+  // Function keys
+  0x3A:'F1',  0x3B:'F2',  0x3C:'F3',  0x3D:'F4',
+  0x3E:'F5',  0x3F:'F6',  0x40:'F7',  0x41:'F8',
+  0x42:'F9',  0x43:'F10', 0x44:'F11', 0x45:'F12',
+  // Navigation
+  0x49:'Insert', 0x4A:'Home', 0x4B:'Page Up', 0x4C:'Delete',
+  0x4D:'End',    0x4E:'Page Down',
+  0x4F:'Right',  0x50:'Left', 0x51:'Down', 0x52:'Up',
 };
 
 // ---------------------------------------------------------------------------
@@ -300,7 +308,7 @@ function makeBackup(text, name) {
 
 async function openFile() {
   if (!window.showOpenFilePicker) {
-    setStatus('File System Access API not supported ΓÇö use Chrome or Edge.', 'error');
+    setStatus('File System Access API not supported \u2014 use Chrome or Edge.', 'error');
     return;
   }
   try {
@@ -356,7 +364,7 @@ function previewHtml(modVal, keyVal) {
   if (m) parts.push(`<kbd>${m}</kbd>`);
   const k = KEYS[keyVal];
   if (k && k !== 'None') parts.push(`<kbd>${k}</kbd>`);
-  return parts.length ? parts.join('') : '<kbd>ΓÇö</kbd>';
+  return parts.length ? parts.join('') : '<kbd>\u2014</kbd>';
 }
 
 function selectOpts(map, selectedVal) {
@@ -381,7 +389,7 @@ function render() {
       if (m) parts.push(m);
       const k = KEYS[keyVal];
       if (k && k !== 'None') parts.push(k);
-      return parts.length ? parts.join(' + ') : 'ΓÇö';
+      return parts.length ? parts.join(' + ') : '\u2014';
     }
 
     const summary = `
@@ -473,7 +481,7 @@ function updateHeaderSummary(bi) {
     const k = KEYS[keyVal];
     if (k && k !== 'None') parts.push(k);
     const el = document.getElementById(`hsum-${bi}-${press}`);
-    if (el) el.textContent = parts.length ? parts.join(' + ') : 'ΓÇö';
+    if (el) el.textContent = parts.length ? parts.join(' + ') : '\u2014';
   });
 }
 
