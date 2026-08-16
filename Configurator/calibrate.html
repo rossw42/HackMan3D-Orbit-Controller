@@ -111,41 +111,9 @@
     Reads live axis data from the SpaceMouse HID interface to auto-detect movements,
     then writes corrected <code>deadzone_input</code>, <code>gain_fp[]</code> and <code>invert_mask</code>
     directly into EEPROM via the VIA custom channel.
-  </div>
-
-  <!-- PREREQ -->
-  <div class="card" id="prereqCard">
-    <div class="steptitle" style="margin-bottom:8px;">Before you start</div>
-    <div class="stepdesc" style="margin-bottom:12px;">
-      This wizard requires the <b>QMK <code>viam</code> keymap</b> to be flashed on the device.
-      The <code>default</code> and <code>debug</code> keymaps do <em>not</em> support live axis
-      readings or VIA parameter writing — the movement steps will not trigger.
-    </div>
-    <table style="margin-bottom:4px;">
-      <tr>
-        <th>I currently have…</th>
-        <th>What to do</th>
-      </tr>
-      <tr>
-        <td>Arduino firmware (v1.x)</td>
-        <td>Flash the QMK <code>viam</code> keymap first (see <code>qmk/07_FLASHING.md</code>):
-          <br><code style="font-size:.85rem;">qmk flash -kb hackman3d/orbit_controller -km viam</code>
-        </td>
-      </tr>
-      <tr>
-        <td>QMK <code>default</code> or <code>debug</code> keymap</td>
-        <td>Re-flash with the <code>viam</code> keymap using the same command above.</td>
-      </tr>
-      <tr>
-        <td>QMK <code>viam</code> keymap ✅</td>
-        <td>You're ready — click <b>Connect device</b> below.</td>
-      </tr>
-    </table>
-    <div class="stepdesc" style="margin-top:10px; font-size:.85rem;">
-      After calibration you can return to the Arduino firmware at any time —
-      see <code>qmk/07_FLASHING.md → Returning to the Arduino firmware</code>.
-      Only EEPROM tuning values are changed; flashing back resets them to compiled defaults.
-    </div>
+    This hardware has <b>4 real motions</b> — tilt, twist, and push/pull — no lateral slide;
+    the wizard tests exactly those and auto-detects which output axis each one drives.
+    <a href="#prereq" style="color:var(--accent); font-size:.85rem; margin-left:8px;">Before you start ↓</a>
   </div>
 
   <!-- CONNECT -->
@@ -163,8 +131,20 @@
     </div>
   </div>
 
+  <!-- BEFORE-CALIBRATION PARAMETER REPORT -->
+  <div class="card hidden" id="beforeParamsCard">
+    <div class="steptitle">Reported parameters (before calibration)</div>
+    <div class="stepdesc">
+      Values read live from device EEPROM via VIA <code>id_custom_get_value</code>,
+      captured the moment the device connected — before any calibration changes are written.
+      Used afterwards to verify the save actually reached EEPROM.
+    </div>
+    <table id="beforeParamsTable"></table>
+  </div>
+
   <!-- WIZARD -->
   <div class="card hidden" id="wizardCard">
+
     <div class="steps-indicator" id="stepsDots"></div>
     <div class="stepnum" id="stepNum"></div>
     <div class="steptitle" id="stepTitle"></div>
@@ -200,6 +180,55 @@
     <div class="statusline" id="applyStatus" style="margin-top:10px;"></div>
   </div>
 
+  <!-- POST-CALIBRATION EEPROM VERIFICATION -->
+  <div class="card hidden" id="verifyCard">
+    <div class="steptitle">Verify write (read back from EEPROM)</div>
+    <div class="stepdesc">
+      After saving, every parameter is re-read live from device EEPROM via
+      VIA <code>id_custom_get_value</code> and compared against what was written
+      and against the value reported before calibration. This confirms the
+      save actually reached EEPROM rather than only RAM.
+    </div>
+    <table id="verifyTable"></table>
+    <div class="statusline" id="verifyStatus" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- PREREQ (reference section) -->
+
+  <div class="card" id="prereq" style="margin-top:24px; border-color:#2a3a4a;">
+    <div class="steptitle" style="margin-bottom:8px;">Before you start</div>
+    <div class="stepdesc" style="margin-bottom:12px;">
+      This wizard requires the <b>QMK <code>viam</code> keymap</b> to be flashed on the device.
+      The <code>default</code> and <code>debug</code> keymaps do <em>not</em> support live axis
+      readings or VIA parameter writing — the movement steps will not trigger.
+    </div>
+    <table style="margin-bottom:4px;">
+      <tr>
+        <th>I currently have…</th>
+        <th>What to do</th>
+      </tr>
+      <tr>
+        <td>Arduino firmware (v1.x)</td>
+        <td>Flash the QMK <code>viam</code> keymap first (see <code>qmk/07_FLASHING.md</code>):
+          <br><code style="font-size:.85rem;">qmk flash -kb hackman3d/orbit_controller -km viam</code>
+        </td>
+      </tr>
+      <tr>
+        <td>QMK <code>default</code> or <code>debug</code> keymap</td>
+        <td>Re-flash with the <code>viam</code> keymap using the same command above.</td>
+      </tr>
+      <tr>
+        <td>QMK <code>viam</code> keymap ✅</td>
+        <td>You're ready — click <b>Connect device</b> above.</td>
+      </tr>
+    </table>
+    <div class="stepdesc" style="margin-top:10px; font-size:.85rem;">
+      After calibration you can return to the Arduino firmware at any time —
+      see <code>qmk/07_FLASHING.md → Returning to the Arduino firmware</code>.
+      Only EEPROM tuning values are changed; flashing back resets them to compiled defaults.
+    </div>
+  </div>
+
   <div class="footer">
     HackMan3D Orbit Controller · Calibration Wizard · QMK/VIA edition<br>
     Requires the <b>viam</b> keymap (VIA custom menus).
@@ -231,6 +260,28 @@ const ID_INVERT_X        = 10;  // 10..15 = bits 0..5
 
 // channel 4 (ORBIT_CH_SYSTEM) value ids
 const ID_RECALIBRATE = 10;
+
+// ============================================================================
+// Reportable parameters — everything the calibration wizard writes.
+// All live on channel 0 (ORBIT_CH_AXES). "bit" values are single-byte
+// toggles (0/1); "u16" values are big-endian 16-bit range values.
+// ============================================================================
+const REPORT_PARAMS = [
+  { id: ID_DEADZONE_INPUT,     label: "Input deadzone", type: "u16" },
+  { id: ID_GAIN_TX + 0,        label: "Gain TX",        type: "u16" },
+  { id: ID_GAIN_TX + 1,        label: "Gain TY",        type: "u16" },
+  { id: ID_GAIN_TX + 2,        label: "Gain TZ",        type: "u16" },
+  { id: ID_GAIN_TX + 3,        label: "Gain RX",        type: "u16" },
+  { id: ID_GAIN_TX + 4,        label: "Gain RY",        type: "u16" },
+  { id: ID_GAIN_TX + 5,        label: "Gain RZ",        type: "u16" },
+  { id: ID_INVERT_X + 0,       label: "Invert X",       type: "bit" },
+  { id: ID_INVERT_X + 1,       label: "Invert Y",       type: "bit" },
+  { id: ID_INVERT_X + 2,       label: "Invert Z",       type: "bit" },
+  { id: ID_INVERT_X + 3,       label: "Invert RX",      type: "bit" },
+  { id: ID_INVERT_X + 4,       label: "Invert RY",      type: "bit" },
+  { id: ID_INVERT_X + 5,       label: "Invert RZ",      type: "bit" },
+];
+
 
 // VIA Raw HID: usage page 0xFF60, usage 0x61
 const VIA_USAGE_PAGE = 0xFF60;
@@ -335,6 +386,13 @@ async function connect() {
   $("btnConnect").disabled = true;
 
   // Probe VIA: try to GET deadzone_input; if the device answers it's viam.
+  // NOTE: intentionally the ONLY VIA round-trip performed during connect().
+  // Reading the full parameter report here (13 more GETs) would contend with
+  // the axis "inputreport" stream right as the movement-detection listeners
+  // are being attached, and has been observed to break the wizard's ability
+  // to see live axis movement. The "before calibration" report is instead
+  // captured later, at the review step -- after all movement-capture steps
+  // are finished -- where it can no longer interfere with the live stream.
   const probeVal = await viaGet(CH_AXES, ID_DEADZONE_INPUT);
   if (probeVal !== null) {
     $("modeBadge").textContent = "viam firmware · VIA ok";
@@ -352,6 +410,7 @@ async function connect() {
   startWizard();
 }
 
+
 // ============================================================================
 // SpaceMouse HID report parsing
 // Report ID 1: translation  [x_lo x_hi y_lo y_hi z_lo z_hi]  int16 LE
@@ -362,20 +421,41 @@ function int16(lo, hi) {
   return u >= 0x8000 ? u - 0x10000 : u;
 }
 
+// EN: CONFIRMED in firmware source (not speculative) -- both the Arduino
+//     .ino (sendCommand(oRX, oRZ, oRY, oTX, oTZ, oTY)) and the QMK viam
+//     keymap (orbit_controller.c: orbit_6dof_send(rx, rz, ry, tx, tz, ty))
+//     intentionally swap the Y/Z translation fields and the RY/RZ rotation
+//     fields on the wire, required for 3Dconnexion/3DxWare driver
+//     compatibility on the host. That means the raw HID wire order is
+//     [tx, tz, ty] for translation and [rx, rz, ry] for rotation -- NOT
+//     [tx,ty,tz]/[rx,ry,rz] as the field names would suggest.
+//     Evidence this is real and not the movement-detection issue (which was
+//     a separate TRIGGER_MAG bug, fixed independently): a full review run
+//     showed TZ (push/pull axis) reading exactly 0 across all 9 steps while
+//     TY showed a large, tilt-inconsistent swing (+5728/-511) that matches
+//     the push/pull motion's real magnitude -- i.e. the real Z signal was
+//     landing in the wire's "y" field the whole time.
+//     Un-swap here so latestAxes.ty/tz/ry/rz match the device's real
+//     internal axes, which is what the wizard's STEPS/AXIS_DEFS mapping
+//     assumes.
+// FR: Confirmé dans le code source du firmware : le firmware inverse Y/Z
+//     (translation) et RY/RZ (rotation) sur le fil pour la compatibilité
+//     3Dconnexion. On annule cette inversion ici.
 function onSpaceReport(event) {
   const d = event.data;
   if (event.reportId === 1 && d.byteLength >= 6) {
     latestAxes.tx = int16(d.getUint8(0), d.getUint8(1));
-    latestAxes.ty = int16(d.getUint8(2), d.getUint8(3));
-    latestAxes.tz = int16(d.getUint8(4), d.getUint8(5));
+    latestAxes.tz = int16(d.getUint8(2), d.getUint8(3));  // wire "y" field = device tz
+    latestAxes.ty = int16(d.getUint8(4), d.getUint8(5));  // wire "z" field = device ty
   } else if (event.reportId === 2 && d.byteLength >= 6) {
     latestAxes.rx = int16(d.getUint8(0), d.getUint8(1));
-    latestAxes.ry = int16(d.getUint8(2), d.getUint8(3));
-    latestAxes.rz = int16(d.getUint8(4), d.getUint8(5));
+    latestAxes.rz = int16(d.getUint8(2), d.getUint8(3));  // wire "ry" field = device rz
+    latestAxes.ry = int16(d.getUint8(4), d.getUint8(5));  // wire "rz" field = device ry
     // rx/rz report completes the frame — emit
     emitAxes({ ...latestAxes });
   }
 }
+
 
 function emitAxes(a) {
   drawAxes(a);
@@ -446,6 +526,45 @@ async function viaSave() {
   } catch (_) {}
 }
 
+// ============================================================================
+// Parameter reporting — read every REPORT_PARAMS entry live from the device
+// (EEPROM-backed g_config, via id_custom_get_value) and format for display.
+// Returns an array parallel to REPORT_PARAMS: { ...param, value, text }.
+// A null value means the GET timed out (VIA not responding / wrong keymap).
+// ============================================================================
+async function readAllParams() {
+  const results = [];
+  for (const p of REPORT_PARAMS) {
+    const raw = await viaGet(CH_AXES, p.id);
+    await sleep(15);
+    let value = raw;
+    let text;
+    if (raw === null) {
+      text = "—";
+    } else if (p.type === "bit") {
+      value = raw & 1;
+      text = value ? "inverted" : "normal";
+    } else {
+      text = `${raw} <small>(${(raw / 256).toFixed(2)}×)</small>`;
+    }
+    results.push({ ...p, value, text });
+  }
+  return results;
+}
+
+function renderParamsTable(tableId, params) {
+  let rows = "<tr><th>Parameter</th><th>Value</th></tr>";
+  for (const p of params) {
+    rows += `<tr><td>${p.label}</td><td class="num">${p.text}</td></tr>`;
+  }
+  $(tableId).innerHTML = rows;
+}
+
+// Snapshots captured before calibration writes / after the save + read-back.
+let paramsBefore = null;
+let paramsAfterWrite = null;   // the values we intended to write (from wizard)
+
+
 function setConnStatus(msg, cls) {
   $("connStatus").innerHTML = msg;
   $("connStatus").className = "statusline" + (cls ? " " + cls : "");
@@ -456,7 +575,17 @@ function setConnStatus(msg, cls) {
 // Order: TX TY TZ | RX RY RZ
 // ============================================================================
 const AXIS_KEYS = ["tx","ty","tz","rx","ry","rz"];
-const AXIS_LABELS = ["TX ←→","TY ↕","TZ ↑↓","RX tilt","RY tilt","RZ twist"];
+// EN: These labels intentionally spell out which PHYSICAL motion drives each
+//     axis, because the mapping is not the naive "left/right -> RX" guess.
+//     Per the firmware's coupled-joystick math (pins[8] + transX/transY/
+//     rotX/rotY in the .ino), standard aerospace convention applies:
+//       - Tilting LEFT/RIGHT produces TX (translation) AND RY (roll) together.
+//       - Tilting FORWARD/BACK produces TY (translation) AND RX (pitch) together.
+//     So "tilt left, nothing on RX" is expected -- RX only responds to
+//     forward/back tilt. Watch RY for left/right tilt instead.
+// FR: Ces étiquettes précisent le mouvement physique réel qui pilote chaque
+//     axe, car l'association n'est pas celle attendue naïvement.
+const AXIS_LABELS = ["TX (L/R tilt)","TY (F/B tilt)","TZ ↑↓","RX pitch (F/B)","RY roll (L/R)","RZ twist"];
 
 function initAxisbars() {
   const c = $("axisbars");
@@ -494,9 +623,15 @@ function drawAxes(a) {
 
 // ============================================================================
 // Wizard steps
-// axis: which latestAxes key to watch for movement detection
-// dir:  expected sign of that axis when the user performs the motion correctly
-//       (used to suggest inversion if the sign is wrong)
+//
+// HARDWARE NOTE: this device has no lateral-slide mechanism. The puck sits on
+// four mechanically-coupled Hall-effect joysticks and only supports FOUR real
+// motions: tilt (2 orthogonal axes, 4 directions), twist, and push/pull.
+// Tilting is what drives BOTH the "translation" (TX/TY) and "rotation"
+// (RX/RY) HID outputs simultaneously — that crosstalk is intentional firmware
+// behavior (see ROTATION_PRIORITY in the .ino), not a bug. So each tilt step
+// below captures ALL 6 axes at once instead of pretending slide and tilt are
+// separate motions.
 // ============================================================================
 const STEPS = [
   { id: "rest",
@@ -505,57 +640,49 @@ const STEPS = [
     desc:  "Do NOT touch the controller for 3 seconds. The wizard " +
            "measures the noise floor to compute the recommended input deadzone, " +
            "then triggers a fresh center calibration on the device.",
-    axis: null, dir: 0, seconds: 3 },
+    seconds: 3 },
 
-  { id: "left",     title: "Push LEFT and hold",              motion: "⬅️",
-    desc: "Slide the knob fully to the LEFT and hold at the stop.",
-    axis: "tx", dir: -1 },
-  { id: "right",    title: "Push RIGHT and hold",             motion: "➡️",
-    desc: "Slide the knob fully to the RIGHT and hold at the stop.",
-    axis: "tx", dir: +1 },
-  { id: "forward",  title: "Push FORWARD (away) and hold",    motion: "⬆️",
-    desc: "Slide the knob fully AWAY from you and hold.",
-    axis: "ty", dir: +1 },
-  { id: "back",     title: "Pull BACK (toward you) and hold", motion: "⬇️",
-    desc: "Slide the knob fully TOWARD you and hold.",
-    axis: "ty", dir: -1 },
-  { id: "up",       title: "LIFT UP and hold",                motion: "🔼",
-    desc: "Pull the knob straight UP and hold.",
-    axis: "tz", dir: +1 },
-  { id: "down",     title: "PRESS DOWN and hold",             motion: "🔽",
-    desc: "Press the knob straight DOWN and hold.",
-    axis: "tz", dir: -1 },
-  { id: "twistcw",  title: "TWIST CLOCKWISE and hold",        motion: "🔃 CW",
-    desc: "Twist the knob clockwise (viewed from above) and hold at the stop.",
-    axis: "rz", dir: +1 },
-  { id: "twistccw", title: "TWIST COUNTER-CLOCKWISE and hold",motion: "🔄 CCW",
-    desc: "Twist the knob counter-clockwise and hold at the stop.",
-    axis: "rz", dir: -1 },
-  { id: "tiltright",title: "TILT RIGHT and hold",             motion: "↪️ →",
-    desc: "Tilt the TOP of the knob to the RIGHT (rocking, not sliding) and hold.",
-    axis: "ry", dir: +1 },
-  { id: "tiltleft", title: "TILT LEFT and hold",              motion: "↩️ ←",
-    desc: "Tilt the TOP of the knob to the LEFT and hold.",
-    axis: "ry", dir: -1 },
-  { id: "tiltfwd",  title: "TILT FORWARD and hold",           motion: "⤴️ ↑",
-    desc: "Tilt the TOP of the knob AWAY from you and hold.",
-    axis: "rx", dir: +1 },
-  { id: "tiltback", title: "TILT BACK and hold",              motion: "⤵️ ↓",
-    desc: "Tilt the TOP of the knob TOWARD you and hold.",
-    axis: "rx", dir: -1 },
+  { id: "tiltleft",  title: "TILT LEFT and hold",  motion: "↩️ ←",
+    desc: "Tilt the TOP of the knob to the LEFT (rocking, not sliding) and hold at the stop. " +
+          "This one motion drives two outputs at once — that's expected." },
+  { id: "tiltright", title: "TILT RIGHT and hold", motion: "↪️ →",
+    desc: "Tilt the TOP of the knob to the RIGHT and hold at the stop." },
+  { id: "tiltfwd",   title: "TILT FORWARD (away) and hold", motion: "⤴️ ↑",
+    desc: "Tilt the TOP of the knob AWAY from you and hold at the stop." },
+  { id: "tiltback",  title: "TILT BACK (toward you) and hold", motion: "⤵️ ↓",
+    desc: "Tilt the TOP of the knob TOWARD you and hold at the stop." },
+  { id: "push",      title: "PRESS DOWN and hold", motion: "🔽",
+    desc: "Press the knob straight DOWN and hold." },
+  { id: "pull",      title: "LIFT UP and hold",    motion: "🔼",
+    desc: "Pull the knob straight UP and hold." },
+  { id: "twistcw",   title: "TWIST CLOCKWISE and hold", motion: "🔃 CW",
+    desc: "Twist the knob clockwise (viewed from above) and hold at the stop." },
+  { id: "twistccw",  title: "TWIST COUNTER-CLOCKWISE and hold", motion: "🔄 CCW",
+    desc: "Twist the knob counter-clockwise and hold at the stop." },
 ];
 
-const TRIGGER_MAG  = 80;   // axis value magnitude that starts the capture timer
-const TRIGGER_HOLD = 400;  // ms the axis must stay triggered before capture
+// EN: TRIGGER_MAG was 80, tuned against a device with default (1.0x-ish)
+//     gains. On a device whose EEPROM gains were previously calibrated down
+//     (e.g. gain_fp as low as 64 = 0.25x, observed in the "before" report),
+//     real tilts only reach ~40-60 counts, permanently under the old
+//     threshold -- every step timed out with "no movement detected" even
+//     though the live axis bars clearly showed motion. Lowered to 30 (well
+//     above rest noise, which the wizard's own "rest" step measures as a
+//     handful of counts) so low-gain devices can still be re-calibrated.
+// FR: Seuil abaissé pour permettre la recalibration d'un appareil dont les
+//     gains EEPROM ont été précédemment réduits.
+const TRIGGER_MAG  = 30;   // axis value magnitude that starts the capture timer
+const TRIGGER_HOLD = 300;  // ms the axis must stay triggered before capture
 const CAPTURE_MS   = 1500; // capture window duration
+const ACTIVE_THRESHOLD = 20; // per-axis magnitude considered "moved" for crosstalk reporting
 
 // Wizard state
 const wiz = {
   step: 0,
-  noise: 0,           // peak axis noise measured at rest
+  noise: 0,             // peak axis noise measured at rest
   axisMin: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
   axisMax: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
-  axisReading: {},    // stepId → mean axis value
+  stepReading: {},       // stepId → { tx,ty,tz,rx,ry,rz } mean values for that step
   running: false,
 };
 
@@ -567,8 +694,7 @@ function startWizard() {
     step: 0, noise: 0,
     axisMin: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
     axisMax: { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 },
-    axisReading: {},
-    actualAxis: {},
+    stepReading: {},
     running: false,
   });
   renderStep();
@@ -623,45 +749,39 @@ async function runStep() {
     return;
   }
 
-  // Movement step — trigger on ANY axis exceeding threshold, not just the
-  // expected one, so the wizard works even when the device's axis mapping
-  // doesn't match the default pipeline order (e.g. "push left" arrives on RZ).
+  // Movement step — wait for ANY axis to cross the trigger threshold (the
+  // device build may route a given physical motion to any output axis),
+  // then capture ALL 6 axes simultaneously. A tilt on this hardware
+  // legitimately drives two outputs at once (e.g. TX *and* RY) — that's
+  // real crosstalk from the coupled-joystick mechanism, not an error.
   $("stepStatus").textContent = "Waiting for movement…";
-  let dominantKey = s.axis;
-  const { triggered, dominantAxis } = await waitForTriggerAny();
+  const { triggered } = await waitForTriggerAny();
   if (!triggered) {
     stepFail("No movement detected (30 s timeout). Step skipped — retry or continue.");
     return;
   }
-  dominantKey = dominantAxis;
 
-  // Warn live if the axis is unexpected
-  if (dominantKey !== s.axis) {
-    $("stepStatus").textContent =
-      `Movement on ${dominantKey.toUpperCase()} (expected ${s.axis.toUpperCase()}) — capturing…`;
-  } else {
-    $("stepStatus").textContent = "Hold it… capturing.";
-  }
-
+  $("stepStatus").textContent = "Hold it… capturing.";
   const samples = await collectSamples(CAPTURE_MS);
   if (!samples.length) { stepFail("No axis data during capture."); return; }
 
-  // Record which axis actually responded (for review remap note)
-  if (!wiz.actualAxis) wiz.actualAxis = {};
-  wiz.actualAxis[s.id] = dominantKey;
-
-  let sum = 0;
+  const mean = { tx:0, ty:0, tz:0, rx:0, ry:0, rz:0 };
   for (const a of samples) {
-    sum += a[dominantKey];
-    // Track per-axis min/max across all motion steps
     for (const k of AXIS_KEYS) {
+      mean[k] += a[k];
       if (a[k] < wiz.axisMin[k]) wiz.axisMin[k] = a[k];
       if (a[k] > wiz.axisMax[k]) wiz.axisMax[k] = a[k];
     }
   }
-  wiz.axisReading[s.id] = Math.round(sum / samples.length);
-  stepDone(`Captured. ${dominantKey.toUpperCase()} = ${wiz.axisReading[s.id]}. Release the knob.`);
+  for (const k of AXIS_KEYS) mean[k] = Math.round(mean[k] / samples.length);
+  wiz.stepReading[s.id] = mean;
+
+  const moved = AXIS_KEYS
+    .filter(k => Math.abs(mean[k]) >= ACTIVE_THRESHOLD)
+    .map(k => `${k.toUpperCase()}=${mean[k]}`);
+  stepDone(`Captured${moved.length ? ': ' + moved.join(', ') : ' (no axis exceeded threshold)'}. Release the knob.`);
 }
+
 
 // Collect axis samples for `ms` milliseconds from the live stream
 function collectSamples(ms) {
@@ -746,17 +866,18 @@ function nextStep() {
 // ============================================================================
 // Review
 // ============================================================================
-// axis definitions for the review table
-// posStep/negStep map to step ids; expected positive direction determines
-// whether inversion flag should be set (matches firmware default invert_mask
-// 0b111000 = RX RY RZ inverted).
+// Axis definitions for the review table. posStep/negStep are the two real
+// motions that drive each output axis. Each tilt step drives BOTH a
+// translation axis and its paired rotation axis simultaneously (hardware
+// crosstalk, not a bug) — note tx/ry share the same steps, as do ty/rx.
+// defaultInv matches the firmware's default invert_mask (RX/RY/RZ inverted).
 const AXIS_DEFS = [
-  { key:"tx", label:"TX",  posStep:"right",     negStep:"left",      defaultInv:false },
-  { key:"ty", label:"TY",  posStep:"forward",   negStep:"back",      defaultInv:false },
-  { key:"tz", label:"TZ",  posStep:"up",        negStep:"down",      defaultInv:false },
+  { key:"tx", label:"TX",  posStep:"tiltright", negStep:"tiltleft",  defaultInv:false },
+  { key:"ty", label:"TY",  posStep:"tiltfwd",   negStep:"tiltback",  defaultInv:false },
+  { key:"tz", label:"TZ",  posStep:"pull",      negStep:"push",      defaultInv:false },
   { key:"rx", label:"RX",  posStep:"tiltfwd",   negStep:"tiltback",  defaultInv:true  },
   { key:"ry", label:"RY",  posStep:"tiltright", negStep:"tiltleft",  defaultInv:true  },
-  { key:"rz", label:"RZ",  posStep:"twistcw",   negStep:"twistccw",  defaultInv:true  },
+  { key:"rz", label:"RZ",  posStep:"twistcw",   negStep:"twistccw", defaultInv:true  },
 ];
 
 function computeDeadzone() {
@@ -773,35 +894,41 @@ function computeGainFP(axisKey) {
   return Math.max(64, Math.min(1024, g));  // clamp 0.25×..4×
 }
 
-// Suggest inversion: if the positive-labeled movement produced negative output
-// the axis is naturally reversed relative to the firmware reference → flip the
-// default flag.
+// Suggest inversion: if the physically-positive motion produced a negative
+// reading on this specific axis, the axis is reversed relative to the
+// firmware reference → flip the default flag.
 function suggestInv(def) {
-  // Use the actual captured axis for this step if it differed from expected
-  const posActual = wiz.actualAxis[def.posStep] || def.key;
-  const negActual = wiz.actualAxis[def.negStep] || def.key;
-  // positive step reading: mean value on the dominant axis
-  const pos = wiz.axisReading[def.posStep];
-  const neg = wiz.axisReading[def.negStep];
+  const posReading = wiz.stepReading[def.posStep];
+  const negReading = wiz.stepReading[def.negStep];
+  const pos = posReading ? posReading[def.key] : undefined;
+  const neg = negReading ? negReading[def.key] : undefined;
   let reversed = false;
   if (pos !== undefined && pos !== 0) reversed = pos < 0;
   else if (neg !== undefined && neg !== 0) reversed = neg > 0;
   return reversed ? !def.defaultInv : def.defaultInv;
 }
 
-function showReview() {
-  $("wizardCard").classList.add("hidden");
-  $("reviewCard").classList.remove("hidden");
-
-  // Build a note if any step's actual axis differed from expected
-  const remaps = [];
+// Build a human-readable note about which motions drove more than one axis —
+// this is expected on this hardware (tilt → translation + rotation at once)
+// but worth surfacing so the user understands why, e.g., TX and RY both show
+// a range from the same two tilt steps.
+function buildCrosstalkNote() {
+  const lines = [];
   for (const s of STEPS) {
-    if (!s.axis) continue;
-    const actual = wiz.actualAxis[s.id];
-    if (actual && actual !== s.axis) {
-      remaps.push(`"${s.title}": expected ${s.axis.toUpperCase()}, captured ${actual.toUpperCase()}`);
+    if (s.id === "rest") continue;
+    const r = wiz.stepReading[s.id];
+    if (!r) continue;
+    const moved = AXIS_KEYS.filter(k => Math.abs(r[k]) >= ACTIVE_THRESHOLD);
+    if (moved.length > 1) {
+      lines.push(`${s.title.replace(' and hold','')} → ${moved.map(k => k.toUpperCase()).join(' + ')}`);
     }
   }
+  return lines;
+}
+
+async function showReview() {
+  $("wizardCard").classList.add("hidden");
+  $("reviewCard").classList.remove("hidden");
 
   let rows = "<tr><th>Axis</th><th>Peak +</th><th>Peak −</th><th>Range</th>" +
              "<th>Gain FP</th><th>Health</th><th>Invert</th></tr>";
@@ -825,13 +952,26 @@ function showReview() {
     </tr>`;
   }
   $("axisTable").innerHTML = rows;
+
+  const crosstalk = buildCrosstalkNote();
   $("deadzoneLine").innerHTML =
     `Recommended <code>deadzone_input</code>: <b>${computeDeadzone()}</b>` +
     ` (peak rest noise = ${wiz.noise} counts × 4 + 8).` +
-    (remaps.length
-      ? `<br><span style="color:var(--warn)">⚠ Axis remaps detected (your build may differ): ${remaps.join("; ")}.</span>`
+    (crosstalk.length
+      ? `<br><span style="color:var(--muted)">ℹ Expected dual-axis motion (tilt drives translation + rotation together): ${crosstalk.join('; ')}.</span>`
       : "");
+
+  // Report every calibration parameter as it stands in EEPROM right now,
+  // before the Save button is clicked. Deferred to here (rather than at
+  // connect time) so the 13 VIA GET round-trips cannot contend with the
+  // axis "inputreport" stream during the movement-capture steps above.
+  if (viaDevice) {
+    paramsBefore = await readAllParams();
+    renderParamsTable("beforeParamsTable", paramsBefore);
+    $("beforeParamsCard").classList.remove("hidden");
+  }
 }
+
 
 function currentInvertMask() {
   let mask = 0;
@@ -852,6 +992,14 @@ async function applyToDevice() {
   const dz = computeDeadzone();
   const gainFPs = AXIS_DEFS.map(d => computeGainFP(d.key));
   const invMask = currentInvertMask();
+
+  // Build the intended-value map (id → value we're about to write), parallel
+  // to REPORT_PARAMS, so the verification step below can compare read-back
+  // EEPROM values against what we actually asked the device to store.
+  const intended = { [ID_DEADZONE_INPUT]: dz };
+  for (let i = 0; i < 6; i++) intended[ID_GAIN_TX + i] = gainFPs[i];
+  for (let i = 0; i < 6; i++) intended[ID_INVERT_X + i] = (invMask >> i) & 1;
+  paramsAfterWrite = REPORT_PARAMS.map(p => ({ ...p, value: intended[p.id] }));
 
   let ok = true;
 
@@ -890,8 +1038,74 @@ async function applyToDevice() {
       "Check the connection and retry.";
     status.className = "statusline err";
     btn.disabled = false;
+    return;
+  }
+
+  await verifyEeprom();
+}
+
+// ============================================================================
+// Post-calibration verification — read every parameter straight back out of
+// device EEPROM (fresh GETs, not cached) and compare against:
+//   - the value we just intended to write (proves the SET+SAVE round-tripped)
+//   - the value reported before calibration started (shows what changed)
+// ============================================================================
+async function verifyEeprom() {
+  $("verifyCard").classList.remove("hidden");
+  const status = $("verifyStatus");
+  status.textContent = "Reading back EEPROM to verify the save…";
+  status.className = "statusline";
+
+  await sleep(100);   // give the device a moment after the save/recalibrate
+  const readBack = await readAllParams();
+
+  let allMatch = true;
+  let rows = "<tr><th>Parameter</th><th>Before</th><th>Written</th><th>Read back</th><th>Match</th></tr>";
+  for (let i = 0; i < REPORT_PARAMS.length; i++) {
+    const p       = REPORT_PARAMS[i];
+    const before   = paramsBefore ? paramsBefore[i] : null;
+    const intended = paramsAfterWrite ? paramsAfterWrite[i] : null;
+    const after    = readBack[i];
+
+    const beforeText   = before ? before.text : "—";
+    const intendedText = intended && intended.value !== undefined
+      ? (p.type === "bit" ? (intended.value ? "inverted" : "normal") : intended.value)
+      : "—";
+    const afterText = after.text;
+
+    const matches = intended && after.value !== null && intended.value === after.value;
+    if (!matches) allMatch = false;
+
+    const badge = after.value === null
+      ? '<span class="badge warn">no read</span>'
+      : matches
+        ? '<span class="badge ok">✔ match</span>'
+        : '<span class="badge err">✘ mismatch</span>';
+
+    rows += `<tr>
+      <td>${p.label}</td>
+      <td class="num">${beforeText}</td>
+      <td class="num">${intendedText}</td>
+      <td class="num">${afterText}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }
+  $("verifyTable").innerHTML = rows;
+
+  if (allMatch) {
+    status.textContent =
+      "✔ Every parameter read back from EEPROM matches what was written. " +
+      "The save reached EEPROM, not just RAM.";
+    status.className = "statusline ok";
+  } else {
+    status.textContent =
+      "⚠ One or more parameters did not read back as written. Re-run Save to " +
+      "device, or check the VIA connection — the EEPROM write may not have " +
+      "completed.";
+    status.className = "statusline err";
   }
 }
+
 
 async function factoryReset() {
   if (!confirm("Reset all VIA settings to firmware defaults? This cannot be undone.")) return;
@@ -912,9 +1126,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 $("btnConnect").onclick   = connect;
 $("btnStepAction").onclick= () => { if (!wiz.running) runStep(); };
 $("btnSkip").onclick      = () => { if (!wiz.running) nextStep(); };
-$("btnRestart").onclick   = () => { $("reviewCard").classList.add("hidden"); startWizard(); };
-$("btnRestart2").onclick  = () => { $("reviewCard").classList.add("hidden"); startWizard(); };
+$("btnRestart").onclick   = () => { $("reviewCard").classList.add("hidden"); $("verifyCard").classList.add("hidden"); startWizard(); };
+$("btnRestart2").onclick  = () => { $("reviewCard").classList.add("hidden"); $("verifyCard").classList.add("hidden"); startWizard(); };
 $("btnApply").onclick     = applyToDevice;
+
 $("btnFactory").onclick   = factoryReset;
 </script>
 </body>
